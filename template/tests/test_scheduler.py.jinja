@@ -1,0 +1,10 @@
+from {{ package_name }}.scheduler import build_scheduler
+
+
+def test_scheduler_dispatches_only_when_run():
+    calls = []
+    scheduler = build_scheduler(lambda: calls.append("dispatched"), 5)
+    assert len(scheduler.jobs) == 1
+    assert calls == []
+    scheduler.run_all(delay_seconds=0)
+    assert calls == ["dispatched"]

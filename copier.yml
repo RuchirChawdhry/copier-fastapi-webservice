@@ -1,0 +1,45 @@
+_min_copier_version: "9.14.1"
+_subdirectory: template
+_templates_suffix: .jinja
+
+project_name:
+  type: str
+  help: Human-readable webservice name
+  default: My FastAPI Service
+
+project_slug:
+  type: str
+  help: Distribution and systemd service prefix
+  default: "{{ project_name | lower | replace(' ', '-') | replace('_', '-') }}"
+  validator: >-
+    {% if not (project_slug | regex_search('^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')) %}
+    Use lowercase letters and digits separated by single hyphens.
+    {% endif %}
+
+package_name:
+  type: str
+  help: Importable Python package
+  default: "{{ project_slug | replace('-', '_') }}"
+  validator: >-
+    {% if not (package_name | regex_search('^[a-z][a-z0-9_]*$')) %}
+    Use lowercase Python identifiers.
+    {% endif %}
+
+cli_command:
+  type: str
+  help: Installed executable command
+  default: "{{ project_slug }}"
+  validator: >-
+    {% if not (cli_command | regex_search('^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')) %}
+    Use lowercase letters and digits separated by single hyphens.
+    {% endif %}
+
+description:
+  type: str
+  help: Short service description
+  default: An always-on Python API with background jobs.
+
+author_name:
+  type: str
+  help: Copyright holder
+  default: Ruchir Chawdhry

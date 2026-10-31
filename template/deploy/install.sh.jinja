@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Explicit installation only. Copier never executes this file.
+set -euo pipefail
+
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo 'Run with: sudo bash deploy/install.sh' >&2
+  exit 1
+fi
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+SERVICE_USER="${SERVICE_USER:-${SUDO_USER:-}}"
+
+if [[ -z "$SERVICE_USER" || "$SERVICE_USER" == root ]]; then
+  echo 'Specify a non-root SERVICE_USER, or invoke using sudo.' >&2
+  exit 1
+fi
+if ! id "$SERVICE_USER" >/dev/null 2>&1; then
+  echo "Service user does not exist: $SERVICE_USER" >&2
+  exit 1
+fi
+if [[ "$ROOT" =~ [[:space:]] ]]; then
+  echo 'Move project to a path without whitespace for systemd installation.' >&2
+  exit 1
+fi
+if [[ ! -x "$ROOT/.venv/bin/{{ cli_command }}" ]]; then
+  echo 'Run uv sync from the project directory as the service user first.' >&2
+  exit 1
+fi
+if [[ ! -f "$ROOT/.env" ]]; then
+  echo 'Create and review .env from .env.example first.' >&2
+  exit 1
+fi
+
+install -d -m 700 -o "$SERVICE_USER" -g "$(id -gn "$SERVICE_USER")" "$ROOT/data"
+
+write_unit() {
+  local kind="$1"
+  local command="$kind"
+  local unit="/etc/systemd/system/{{ project_slug }}-$kind.service"
+  if [[ "$kind" == api ]]; then
+    command=serve
+  fi
+
+  cat > "$unit" <<EOF
+[Unit]
+Description={{ project_name }} ($kind)
+Wants=network-online.target
+After=network-online.target redis-server.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=$SERVICE_USER
+WorkingDirectory=$ROOT
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=$ROOT/.env
+ExecStart=$ROOT/.venv/bin/{{ cli_command }} $command
+Restart=always
+RestartSec=5
+TimeoutStopSec=60
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  chmod 644 "$unit"
+}
+
+write_unit api
+write_unit worker
+write_unit scheduler
+
+systemctl daemon-reload
+for kind in api worker scheduler; do
+  systemctl enable --now "{{ project_slug }}-$kind.service"
+done
+
+echo 'Installed and enabled three units. Inspect with:'
+echo '  sudo systemctl status {{ project_slug }}-api.service'
+echo '  sudo journalctl -fu {{ project_slug }}-worker.service'

@@ -1,0 +1,21 @@
+import sqlite3
+
+from {{ package_name }}.db import count_messages, init_db, record_message
+
+
+def test_database_initializes_and_persists(tmp_path):
+    path = tmp_path / "test.sqlite3"
+    init_db(path)
+    assert count_messages(path) == 0
+    message_id = record_message("hello", path)
+    assert message_id == 1
+    assert count_messages(path) == 1
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+def test_values_are_parameterized(tmp_path):
+    path = tmp_path / "test.sqlite3"
+    init_db(path)
+    record_message("quote ' ; DROP TABLE messages;", path)
+    assert count_messages(path) == 1

@@ -1,0 +1,93 @@
+# {{ project_name }}
+
+{{ description }}
+
+A minimal, backend-only FastAPI service with independent ARQ workers and scheduled jobs. Designed for long-running Ubuntu deployments supervised by systemd.
+
+## Requirements
+
+- Python **3.14.7** managed by [uv](https://docs.astral.sh/uv/)
+- Ubuntu with systemd
+- Redis (`sudo apt install redis-server`) for ARQ jobs
+- No frontend, Docker, Node, React, or browser dependencies
+
+## Development
+
+```bash
+uv sync
+cp .env.example .env
+uv run {{ cli_command }} init-db
+uv run {{ cli_command }} serve
+```
+
+In separate terminals start the worker and scheduler:
+
+```bash
+uv run --env-file .env {{ cli_command }} worker
+uv run --env-file .env {{ cli_command }} scheduler
+```
+
+Environment overrides in `.env` are only loaded for development when `uv run --env-file .env` is used. With default values the basic commands also work without loading `.env`.
+
+## API
+
+```bash
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/messages/count
+curl -X POST http://127.0.0.1:8000/jobs \
+  -H 'content-type: application/json' \
+  -d '{"message":"hello from queue"}'
+```
+
+`POST /jobs` responds with HTTP 202 and a Redis job ID. The worker writes messages to SQLite. The scheduler enqueues a sample heartbeat at `SCHEDULE_INTERVAL_SECONDS` intervals (300 by default). Replace these demonstration tasks with your application logic.
+
+**Security:** the job API has no authentication. Keep `APP_HOST=127.0.0.1`; for LAN/public access, introduce explicit authentication and a configured reverse proxy first. The generated API exposes OpenAPI JSON/docs, but no frontend implementation.
+
+## CLI
+
+```bash
+uv run {{ cli_command }} --help
+uv run {{ cli_command }} init-db
+uv run {{ cli_command }} serve
+uv run {{ cli_command }} worker
+uv run {{ cli_command }} scheduler
+uv run {{ cli_command }} enqueue "hello"
+uv run {{ cli_command }} status
+```
+
+## Ubuntu: start automatically on boot
+
+From the *generated project* as your ordinary login account:
+
+```bash
+sudo apt update
+sudo apt install redis-server
+sudo systemctl enable --now redis-server
+uv sync
+cp .env.example .env
+uv run --env-file .env {{ cli_command }} init-db
+sudo bash deploy/install.sh
+```
+
+This writes three system-wide units: `{{ project_slug }}-api.service`, `{{ project_slug }}-worker.service` and `{{ project_slug }}-scheduler.service`. All start at boot and restart automatically on failure. The installer uses `SUDO_USER` as the non-root service account; override using `sudo SERVICE_USER=youruser bash deploy/install.sh` if needed. It requires an existing local virtual environment and `.env`. It does not automatically download packages or alter your Python installation.
+
+```bash
+sudo systemctl restart {{ project_slug }}-api.service
+sudo systemctl status {{ project_slug }}-worker.service
+sudo journalctl -fu {{ project_slug }}-scheduler.service
+sudo systemctl disable --now {{ project_slug }}-{api,worker,scheduler}.service
+```
+
+Run `sudo systemctl daemon-reload` after manually changing unit files. To upgrade application code, run `uv sync --frozen --no-dev` as the service user and restart the units. Commit `uv.lock` to each generated service repository after the first `uv sync`.
+
+The built-in `schedule` component is deliberately lightweight and in-memory. Missed executions during downtime are not replayed. ARQ jobs already enqueued to Redis can be processed following a restart, subject to Redis persistence and job expiry configuration. For exact/durable schedules, choose a persistent scheduler rather than assuming `schedule` guarantees it.
+
+## Tests and CI
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest -q
+```
+
+The generated `.github/workflows/ci.yml` runs on pull requests only and delegates to `RuchirChawdhry/ci-workflows`. The Copier template repository itself has no active workflows. See `AGENTS.md` for test-first agent guidance.

@@ -1,0 +1,17 @@
+import subprocess
+import sys
+
+
+def test_cli_help():
+    result = subprocess.run(
+        [sys.executable, "-m", "{{ package_name }}", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "serve" in result.stdout
+    assert "worker" in result.stdout
+    assert "scheduler" in result.stdout
+    assert "enqueue" in result.stdout

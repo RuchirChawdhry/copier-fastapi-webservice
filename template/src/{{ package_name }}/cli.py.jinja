@@ -1,0 +1,96 @@
+"""Thin Cyclopts interface to API, jobs, scheduling and Ubuntu status."""
+
+import asyncio
+import subprocess
+
+from arq.worker import run_worker
+from cyclopts import App
+from rich.console import Console
+from rich.table import Table
+
+from .config import get_settings
+from .db import count_messages, init_db
+from .logging_config import configure_logging
+from .queue import new_pool
+from .scheduler import run_scheduler
+from .worker import WorkerSettings
+
+app = App(name="{{ cli_command }}")
+console = Console()
+
+
+@app.command
+def serve(host: str | None = None, port: int | None = None) -> None:
+    """Start the FastAPI server (foreground; systemd supervises it)."""
+    import uvicorn
+
+    configure_logging()
+    settings = get_settings()
+    uvicorn.run(
+        "{{ package_name }}.api:app",
+        host=host or settings.host,
+        port=port or settings.port,
+        workers=1,
+    )
+
+
+@app.command
+def worker() -> None:
+    """Start the long-running Redis ARQ worker."""
+    configure_logging()
+    run_worker(WorkerSettings)
+
+
+@app.command
+def scheduler() -> None:
+    """Start the independent periodic job dispatcher."""
+    configure_logging()
+    asyncio.run(run_scheduler())
+
+
+@app.command
+def init_db() -> None:
+    """Initialize the SQLite database."""
+    init_db()
+    console.print("[green]SQLite initialized[/green]")
+
+
+@app.command
+async def enqueue(message: str) -> None:
+    """Submit a message job to Redis."""
+    redis = await new_pool()
+    try:
+        job = await redis.enqueue_job("save_message", message)
+        if job is None:
+            raise RuntimeError("Queue rejected the job")
+        console.print(f"[green]Queued[/green] {job.job_id}")
+    finally:
+        await redis.aclose()
+
+
+@app.command
+def status() -> None:
+    """Show local database and systemd service status."""
+    table = Table(title="{{ project_name }}")
+    table.add_column("Component")
+    table.add_column("Status")
+    for kind in ("api", "worker", "scheduler"):
+        unit = "{{ project_slug }}-" + kind + ".service"
+        try:
+            result = subprocess.run(
+                ["systemctl", "is-active", unit],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=5,
+            )
+            value = result.stdout.strip() or "not installed"
+        except (OSError, subprocess.TimeoutExpired):
+            value = "systemd unavailable"
+        table.add_row(kind, value)
+
+    try:
+        table.add_row("SQLite messages", str(count_messages()))
+    except Exception:
+        table.add_row("SQLite messages", "not initialized")
+    console.print(table)

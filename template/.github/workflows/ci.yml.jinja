@@ -1,0 +1,21 @@
+# Only generated projects receive this workflow; the template repository has no active workflows.
+name: Python webservice CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    uses: RuchirChawdhry/ci-workflows/.github/workflows/python-cli.yml@main
+    with:
+      python-version: '3.14.7'
+      cli-command: '{{ cli_command }}'
+
+  distribution:
+    uses: RuchirChawdhry/ci-workflows/.github/workflows/python-build.yml@main
+    with:
+      python-version: '3.14.7'
+      cli-command: '{{ cli_command }}'
