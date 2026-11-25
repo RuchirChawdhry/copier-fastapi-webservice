@@ -9,7 +9,8 @@ from rich.console import Console
 from rich.table import Table
 
 from .config import get_settings
-from .db import count_messages, init_db
+from .db import count_messages
+from .db import init_db as initialize_database
 from .logging_config import configure_logging
 from .queue import new_pool
 from .scheduler import run_scheduler
@@ -51,7 +52,7 @@ def scheduler() -> None:
 @app.command
 def init_db() -> None:
     """Initialize the SQLite database."""
-    init_db()
+    initialize_database()
     console.print("[green]SQLite initialized[/green]")
 
 

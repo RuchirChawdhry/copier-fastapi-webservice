@@ -15,3 +15,17 @@ def test_cli_help():
     assert "worker" in result.stdout
     assert "scheduler" in result.stdout
     assert "enqueue" in result.stdout
+
+
+def test_cli_initializes_database(tmp_path, monkeypatch):
+    database = tmp_path / "app.sqlite3"
+    monkeypatch.setenv("DATABASE_PATH", str(database))
+    result = subprocess.run(
+        [sys.executable, "-m", "{{ package_name }}", "init-db"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    assert database.is_file()
