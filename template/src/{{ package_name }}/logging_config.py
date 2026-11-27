@@ -1,4 +1,4 @@
-"""Route application, Uvicorn and ARQ logs to one structured stderr sink."""
+"""Route application, Uvicorn and Taskiq logs to one structured stderr sink."""
 
 import logging
 import sys
@@ -31,7 +31,7 @@ def configure_logging() -> None:
         diagnose=False,
     )
     logging.basicConfig(handlers=[InterceptHandler()], level=level, force=True)
-    for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "arq", "arq.worker"):
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "taskiq", "taskiq.worker"):
         standard_logger = logging.getLogger(name)
         standard_logger.handlers.clear()
         standard_logger.setLevel(logging.NOTSET)

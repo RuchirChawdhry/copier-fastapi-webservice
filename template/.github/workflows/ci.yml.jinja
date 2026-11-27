@@ -24,6 +24,7 @@ jobs:
     with:
       python-version: {% raw %}${{ needs.version.outputs.python }}{% endraw +%}
       cli-command: '{{ cli_command }}'
+      test-command: ty check src && pytest -q --benchmark-disable
 
   distribution:
     needs: version

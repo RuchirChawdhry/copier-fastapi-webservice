@@ -29,9 +29,15 @@ def test_generated_features(generated):
     dependencies = config["project"]["dependencies"]
     assert "fastapi" in dependencies
     assert "pydantic-settings" in dependencies
-    for name in ("arq", "redis", "orjson"):
+    for name in ("taskiq", "taskiq-redis", "taskiq-fastapi", "redis"):
         assert any(dep.split(">=")[0] == name for dep in dependencies) == enabled
-    assert "schedule" not in dependencies
+    assert not any(dep.startswith("arq") for dep in dependencies)
+    assert "orjson" not in dependencies
+    assert "uvicorn[standard]" in dependencies
+    assert "psutil" in dependencies
+    assert {"pre-commit", "pytest-benchmark", "ty"} <= set(config["dependency-groups"]["dev"])
+    assert (root / "Taskfile.yml").is_file()
+    assert (root / ".pre-commit-config.yaml").is_file()
     package = root / "src" / "demo_service"
     for module in ("worker", "scheduler", "jobs", "queue"):
         assert (package / f"{module}.py").exists() == enabled

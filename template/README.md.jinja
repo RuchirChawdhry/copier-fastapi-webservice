@@ -4,13 +4,13 @@
 
 Backend-only FastAPI service using uv, SQLite and systemd.
 {% if enable_jobs %}
-Includes Redis-backed ARQ workers and a separate interval scheduler.
+Includes Redis-backed Taskiq workers and a separate interval scheduler.
 {% endif %}
 
 ## Development
 
 ```bash
-uv sync
+task setup
 cp .env.example .env
 uv run {{ cli_command }} init-db
 uv run {{ cli_command }} serve
@@ -32,8 +32,8 @@ uv run {{ cli_command }} enqueue "hello"
 ```
 
 The scheduler sleeps for the configured interval between dispatches. Submissions
-do not overlap. Missed executions during downtime are not replayed. ARQ is in
-maintenance-only mode; the optional job feature remains supported by this template.
+do not overlap. Missed executions during downtime are not replayed. Taskiq uses a per-project Redis stream and retains results for 24 hours.
+Task delivery can be repeated after worker failure; design side effects to be idempotent.
 {% endif %}
 
 ## API
@@ -66,9 +66,13 @@ Commit the generated `uv.lock` to your repository.
 ## Tests
 
 ```bash
-uv run ruff check .
-uv run ruff format --check .
-uv run pytest -q
+task check
+task benchmark
+task resources
 ```
 
 Pull-request CI delegates quality and distribution checks to centralized reusable workflows.
+
+`task setup` installs the staged-file Ruff hooks when run in a Git repository root.
+Run `task fix` to format the whole project. Benchmarks produce `.benchmarks/latest.json`.
+The resources command reports machine memory and the CLI process RSS, not server RSS.

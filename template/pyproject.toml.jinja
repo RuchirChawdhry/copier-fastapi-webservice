@@ -15,13 +15,15 @@ dependencies = [
     "fastapi",
     "loguru",
     "pydantic",
-    "rich",
+    "psutil",
     "pydantic-settings",
-    "uvicorn",
+    "rich",
+    "uvicorn[standard]",
 {% if enable_jobs %}
-    "arq>=0.28",
-    "orjson",
     "redis>=5",
+    "taskiq",
+    "taskiq-fastapi",
+    "taskiq-redis",
 {% endif %}
 ]
 
@@ -29,7 +31,7 @@ dependencies = [
 "{{ cli_command }}" = "{{ package_name }}.cli:app"
 
 [dependency-groups]
-dev = ["httpx", "pytest", "ruff"]
+dev = ["httpx", "pre-commit", "pytest", "pytest-benchmark", "ruff", "ty"]
 
 [tool.uv.build-backend]
 module-name = "{{ package_name }}"

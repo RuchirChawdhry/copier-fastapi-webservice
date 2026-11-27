@@ -1,7 +1,7 @@
 # Copier FastAPI Webservice
 
 Backend-only Copier template for long-running Ubuntu services with FastAPI, SQLite,
-Cyclopts, Rich, Loguru, uv and systemd. Redis and ARQ jobs are optional at generation time.
+Cyclopts, Rich, Loguru, uv and systemd. Redis and Taskiq jobs are optional at generation time.
 
 ```bash
 uvx --from copier copier copy gh:RuchirChawdhry/copier-fastapi-webservice my-service
@@ -12,9 +12,9 @@ uv run my-service init-db
 uv run my-service serve
 ```
 
-Set `enable_jobs=false` to omit Redis, ARQ, queue and scheduler modules, job commands,
+Set `enable_jobs=false` to omit Redis, Taskiq, queue and scheduler modules, job commands,
 job routes, configuration, tests and service units. The default preserves the original
-three-process architecture. ARQ is in maintenance-only mode; see its upstream README.
+three-process architecture.
 
 ```bash
 uvx --from copier copier copy --defaults --data enable_jobs=false gh:RuchirChawdhry/copier-fastapi-webservice my-service
@@ -29,3 +29,6 @@ Template CI uses the shared Copier workflow, and generated-project CI remains PR
 ```bash
 uv run --no-project --with copier --with pytest pytest tests -q
 ```
+
+Generated projects include `task setup`, `task check`, `task benchmark` and `task resources`.
+Taskiq uses a per-project Redis stream and expires results after 24 hours.

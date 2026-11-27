@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 from redis.exceptions import RedisError
+from taskiq.exceptions import SendTaskError
 {% else %}
 from fastapi import FastAPI, Response, status
 from pydantic import BaseModel
@@ -15,7 +16,8 @@ from pydantic import BaseModel
 
 from .db import check_database, count_messages, init_db
 {% if enable_jobs %}
-from .queue import new_pool
+from .jobs import submit_message
+from .queue import broker, new_pool
 {% endif %}
 
 
@@ -38,11 +40,15 @@ class JobReceipt(BaseModel):
 async def lifespan(app: FastAPI):
     await asyncio.to_thread(init_db)
 {% if enable_jobs %}
+    if not broker.is_worker_process:
+        await broker.startup()
     app.state.redis = await new_pool()
     try:
         yield
     finally:
         await app.state.redis.aclose()
+        if not broker.is_worker_process:
+            await broker.shutdown()
 {% else %}
     yield
 {% endif %}
@@ -92,12 +98,11 @@ async def message_count() -> dict[str, int]:
 
 
 @app.post("/jobs", response_model=JobReceipt, status_code=status.HTTP_202_ACCEPTED)
-async def enqueue_job(payload: JobRequest, request: Request) -> JobReceipt:
+async def enqueue_job(payload: JobRequest) -> JobReceipt:
     try:
-        job = await request.app.state.redis.enqueue_job("save_message", payload.message)
-    except (OSError, RedisError) as exc:
+        async with asyncio.timeout(10):
+            job_id = await submit_message(payload.message)
+    except (OSError, RedisError, SendTaskError, TimeoutError) as exc:
         raise HTTPException(status_code=503, detail="Job queue unavailable") from exc
-    if job is None:
-        raise HTTPException(status_code=503, detail="Job was not accepted")
-    return JobReceipt(job_id=job.job_id)
+    return JobReceipt(job_id=job_id)
 {% endif %}

@@ -9,10 +9,6 @@ from {{ package_name }} import api
 
 
 {% if enable_jobs %}
-class FakeJob:
-    job_id = "fake-job-001"
-
-
 class FakeRedis:
     def __init__(self):
         self.messages = []
@@ -23,10 +19,6 @@ class FakeRedis:
         if not self.available:
             raise RedisConnectionError("offline")
         return True
-
-    async def enqueue_job(self, name: str, message: str):
-        self.messages.append((name, message))
-        return FakeJob()
 
     async def aclose(self):
         self.closed = True
@@ -40,7 +32,17 @@ def test_api_health_and_readiness(monkeypatch):
     async def fake_new_pool():
         return redis
 
+    async def noop():
+        pass
+
+    async def submit(message):
+        redis.messages.append(message)
+        return "fake-job-001"
+
     monkeypatch.setattr(api, "new_pool", fake_new_pool)
+    monkeypatch.setattr(api.broker, "startup", noop)
+    monkeypatch.setattr(api.broker, "shutdown", noop)
+    monkeypatch.setattr(api, "submit_message", submit)
 {% endif %}
     with TestClient(api.app) as client:
         assert client.get("/health/live").json() == {"status": "ok"}
@@ -52,7 +54,7 @@ def test_api_health_and_readiness(monkeypatch):
         assert response.json()["dependencies"]["redis"] == "ok"
         assert client.post("/jobs", json={"message": "hello"}).status_code == 202
         assert client.post("/jobs", json={"message": ""}).status_code == 422
-        assert redis.messages == [("save_message", "hello")]
+        assert redis.messages == ["hello"]
         redis.available = False
         assert client.get("/health/ready").status_code == 503
         assert client.get("/health/live").status_code == 200

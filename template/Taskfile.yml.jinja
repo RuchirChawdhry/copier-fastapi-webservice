@@ -1,0 +1,52 @@
+version: '3'
+
+tasks:
+  setup:
+    desc: Install dependencies and Git hooks
+    cmds:
+      - uv sync --group dev
+      - |
+        if git rev-parse --show-toplevel >/dev/null 2>&1 && [ -z "$(git rev-parse --show-prefix)" ]; then
+          uv run --no-sync pre-commit install
+        fi
+
+  dev:
+    cmds:
+      - uv run {{ cli_command }} serve
+
+  fix:
+    cmds:
+      - uv run ruff check --fix .
+      - uv run ruff format .
+
+  lint:
+    cmds:
+      - uv run ruff check .
+      - uv run ruff format --check .
+
+  typecheck:
+    cmds:
+      - uv run ty check src
+
+  test:
+    cmds:
+      - uv run pytest -q --benchmark-disable
+
+  check:
+    cmds:
+      - task: lint
+      - task: typecheck
+      - task: test
+
+  benchmark:
+    cmds:
+      - mkdir -p .benchmarks
+      - uv run pytest tests/test_benchmarks.py --benchmark-only --benchmark-json=.benchmarks/latest.json
+
+  build:
+    cmds:
+      - uv build
+
+  resources:
+    cmds:
+      - uv run {{ cli_command }} resources

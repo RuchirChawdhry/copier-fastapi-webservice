@@ -8,7 +8,7 @@ or live systemd units during development.
 - Reuse established libraries; avoid unnecessary abstractions and defensive code.
 - Keep HTTP and CLI adapters thin, with business logic outside them.
 - Add focused tests for changed behavior. Strict test-first development is not required.
-- Run `uv run ruff check .`, `uv run ruff format --check .`, and `uv run pytest -q`.
+- Run `task check` (Ruff, ty and pytest). Use `task benchmark` to measure performance changes.
 - Verify real infrastructure interactions before claiming integration success.
 - Do not weaken lint or tests to pass CI.
 
@@ -19,7 +19,7 @@ or live systemd units during development.
 - `config.py`: cached validated settings; environment overrides project-root .env.
 - `cli.py`: Cyclopts + Rich, thin adapters.
 {% if enable_jobs %}
-- `jobs.py` and `worker.py`: independent ARQ job execution.
+- `jobs.py` and `worker.py`: independent Taskiq job execution.
 - `scheduler.py`: dedicated sequential dispatcher, never started by API workers.
 {% endif %}
 - `deploy/install.sh`: explicit Ubuntu systemd installation.

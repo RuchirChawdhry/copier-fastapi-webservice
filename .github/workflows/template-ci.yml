@@ -12,8 +12,11 @@ permissions:
 jobs:
   full:
     uses: RuchirChawdhry/ci-workflows/.github/workflows/copier-ci.yml@main
+    with:
+      python-typecheck: true
   minimal:
     uses: RuchirChawdhry/ci-workflows/.github/workflows/copier-ci.yml@main
     with:
       copier-data: '{"enable_jobs": false}'
       artifact-suffix: '-minimal'
+      python-typecheck: true

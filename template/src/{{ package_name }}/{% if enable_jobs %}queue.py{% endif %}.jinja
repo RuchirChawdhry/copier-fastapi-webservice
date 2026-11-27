@@ -1,19 +1,22 @@
-"""ARQ connection helpers. Redis is for jobs, not SQLite persistence."""
+"""Application-scoped Redis Streams broker and result storage."""
 
-import orjson
-from arq import create_pool
-from arq.connections import RedisSettings
+import taskiq_fastapi
+from redis.asyncio import Redis
+from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
 from .config import get_settings
 
+broker = RedisStreamBroker(
+    url=get_settings().redis_url,
+    queue_name="{{ project_slug }}:jobs",
+    consumer_group_name="{{ project_slug }}:workers",
+    consumer_id="0",
+    unacknowledged_lock_timeout=60,
+).with_result_backend(
+    RedisAsyncResultBackend(redis_url=get_settings().redis_url, result_ex_time=86400)
+)
+taskiq_fastapi.init(broker, "{{ package_name }}.api:app")
 
-def redis_settings() -> RedisSettings:
-    return RedisSettings.from_dsn(get_settings().redis_url)
 
-
-async def new_pool():
-    return await create_pool(
-        redis_settings(),
-        job_serializer=orjson.dumps,
-        job_deserializer=orjson.loads,
-    )
+async def new_pool() -> Redis:
+    return Redis.from_url(get_settings().redis_url)

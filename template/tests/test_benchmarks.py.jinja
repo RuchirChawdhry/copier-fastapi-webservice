@@ -1,0 +1,25 @@
+from fastapi.testclient import TestClient
+
+from {{ package_name }}.api import app
+from {{ package_name }}.config import get_settings
+from {{ package_name }}.db import count_messages, init_db, record_message
+
+
+def test_cached_settings(benchmark):
+    settings = get_settings()
+    assert benchmark(get_settings) is settings
+
+
+def test_sqlite_read(benchmark):
+    init_db()
+    record_message("benchmark")
+    assert benchmark(count_messages) == 1
+
+
+def test_http_liveness(benchmark):
+    # Liveness does not require lifespan or external services.
+    client = TestClient(app)
+    try:
+        assert benchmark(client.get, "/health/live").status_code == 200
+    finally:
+        client.close()

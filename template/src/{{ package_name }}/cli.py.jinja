@@ -34,18 +34,27 @@ def serve(host: str | None = None, port: int | None = None) -> None:
 {% if enable_jobs %}
 @app.command
 def worker() -> None:
-    """Start the long-running Redis ARQ worker."""
-    import asyncio
+    """Start the Taskiq worker under its native process supervisor."""
+    import os
+    import sys
 
-    from arq.worker import run_worker
-
-    from .queue import redis_settings
-    from .worker import WorkerSettings
-
-    configure_logging()
-    with asyncio.Runner() as runner:
-        runner.get_loop()
-        run_worker(WorkerSettings, redis_settings=redis_settings())
+    os.execv(
+        sys.executable,
+        [
+            sys.executable,
+            "-m",
+            "taskiq",
+            "worker",
+            "{{ package_name }}.worker:broker",
+            "--workers",
+            "1",
+            "--max-async-tasks",
+            "10",
+            "--ack-type",
+            "when_saved",
+            "--no-configure-logging",
+        ],
+    )
 
 
 @app.command
@@ -79,17 +88,16 @@ def init_db() -> None:
 @app.command
 async def enqueue(message: str) -> None:
     """Submit a message job to Redis."""
-    from .queue import new_pool
+    from .jobs import submit_message
+    from .queue import broker
 
     configure_logging()
-    redis = await new_pool()
+    await broker.startup()
     try:
-        job = await redis.enqueue_job("save_message", message)
-        if job is None:
-            raise RuntimeError("Queue rejected the job")
-        console.print(f"[green]Queued[/green] {job.job_id}")
+        job_id = await submit_message(message)
+        console.print(f"[green]Queued[/green] {job_id}")
     finally:
-        await redis.aclose()
+        await broker.shutdown()
 
 
 {% endif %}
@@ -119,3 +127,14 @@ def status() -> None:
     except Exception:
         table.add_row("SQLite messages", "not initialized")
     console.print(table)
+
+
+
+@app.command
+def resources() -> None:
+    """Print machine and CLI process resource usage as JSON."""
+    import json
+
+    from .resources import resource_snapshot
+
+    print(json.dumps(resource_snapshot()))

@@ -1,21 +1,12 @@
 import asyncio
 
-import orjson
-
 from {{ package_name }}.db import count_messages, init_db
 from {{ package_name }}.jobs import save_message
-from {{ package_name }}.worker import WorkerSettings
+from {{ package_name }}.queue import broker
 
 
-def test_worker_registers_task_and_serializer():
-    assert save_message in WorkerSettings.functions
-    payload = {"hello": "world"}
-    assert WorkerSettings.job_deserializer(WorkerSettings.job_serializer(payload)) == payload
-    assert WorkerSettings.job_serializer is orjson.dumps
-
-
-def test_job_persists_without_redis():
+def test_task_registered_and_persists():
     init_db()
-    result = asyncio.run(save_message({}, "from worker"))
-    assert result == 1
+    assert broker.find_task(save_message.task_name) is save_message
+    assert asyncio.run(save_message.original_func("from worker")) == 1
     assert count_messages() == 1

@@ -49,5 +49,5 @@ author_name:
 
 enable_jobs:
   type: bool
-  help: Include Redis-backed ARQ background jobs and periodic scheduling?
+  help: Include Redis-backed Taskiq background jobs and periodic scheduling?
   default: true

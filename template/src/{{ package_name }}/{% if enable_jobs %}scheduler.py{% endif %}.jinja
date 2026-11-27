@@ -5,9 +5,11 @@ from collections.abc import Awaitable, Callable
 
 from loguru import logger
 from redis.exceptions import RedisError
+from taskiq.exceptions import SendTaskError
 
 from .config import get_settings
-from .queue import new_pool
+from .jobs import submit_message
+from .queue import broker
 
 
 async def run_periodic(callback: Callable[[], Awaitable[None]], interval: int) -> None:
@@ -18,21 +20,18 @@ async def run_periodic(callback: Callable[[], Awaitable[None]], interval: int) -
 
 async def run_scheduler() -> None:
     settings = get_settings()
-    redis = await new_pool()
+    await broker.startup()
 
     async def submit_heartbeat() -> None:
         try:
             async with asyncio.timeout(10):
-                job = await redis.enqueue_job("save_message", "scheduled heartbeat")
-            if job is None:
-                logger.warning("Scheduled job was not accepted")
-            else:
-                logger.info("Enqueued scheduled job {}", job.job_id)
-        except OSError, RedisError, TimeoutError:
+                job_id = await submit_message("scheduled heartbeat")
+            logger.info("Enqueued scheduled job {}", job_id)
+        except OSError, RedisError, SendTaskError, TimeoutError:
             logger.exception("Unable to enqueue scheduled job")
 
     logger.info("Scheduler active: interval={}s", settings.schedule_interval_seconds)
     try:
         await run_periodic(submit_heartbeat, settings.schedule_interval_seconds)
     finally:
-        await redis.aclose()
+        await broker.shutdown()
