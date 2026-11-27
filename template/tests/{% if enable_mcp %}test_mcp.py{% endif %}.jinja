@@ -40,7 +40,9 @@ def test_mcp_tools(monkeypatch):
             json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
         )
         assert response.status_code == 200, response.text
-        assert [tool["name"] for tool in response.json()["result"]["tools"]] == ["get_message_count"]
+        assert [tool["name"] for tool in response.json()["result"]["tools"]] == [
+            "get_message_count"
+        ]
         response = client.post(
             "/mcp/",
             headers=headers,
