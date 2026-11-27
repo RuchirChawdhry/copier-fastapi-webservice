@@ -19,6 +19,9 @@ dependencies = [
     "pydantic-settings",
     "rich",
     "uvicorn[standard]",
+{% if enable_mcp %}
+    "mcp>=2.3,<3",
+{% endif %}
 {% if enable_jobs %}
     "redis>=5",
     "taskiq",
@@ -31,7 +34,7 @@ dependencies = [
 "{{ cli_command }}" = "{{ package_name }}.cli:app"
 
 [dependency-groups]
-dev = ["httpx", "pre-commit", "pytest", "pytest-benchmark", "ruff", "ty"]
+dev = ["httpx", "httpx2", "pre-commit", "pytest", "pytest-benchmark", "ruff", "ty"]
 
 [tool.uv.build-backend]
 module-name = "{{ package_name }}"

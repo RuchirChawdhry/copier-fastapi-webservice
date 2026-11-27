@@ -1,0 +1,65 @@
+"""Exercise the mounted MCP protocol and verify DNS rebinding protection."""
+
+from fastapi.testclient import TestClient
+
+from {{ package_name }} import api
+from {{ package_name }}.db import record_message
+
+
+def test_mcp_tools(monkeypatch):
+{% if enable_jobs %}
+    async def noop():
+        pass
+
+    monkeypatch.setattr(api.broker, "startup", noop)
+    monkeypatch.setattr(api.broker, "shutdown", noop)
+{% endif %}
+    with TestClient(api.create_app(), base_url="http://localhost") as client:
+        record_message("MCP test")
+        headers = {"Accept": "application/json, text/event-stream"}
+        response = client.post(
+            "/mcp/",
+            headers=headers,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "pytest", "version": "1"},
+                },
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["result"]["serverInfo"]["name"]
+        headers["MCP-Protocol-Version"] = response.json()["result"]["protocolVersion"]
+        response = client.post(
+            "/mcp/",
+            headers=headers,
+            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+        )
+        assert response.status_code == 200, response.text
+        assert [tool["name"] for tool in response.json()["result"]["tools"]] == [
+            "get_message_count"
+        ]
+        response = client.post(
+            "/mcp/",
+            headers=headers,
+            json={
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "get_message_count", "arguments": {}},
+            },
+        )
+        assert response.status_code == 200, response.text
+        result = response.json()["result"]
+        assert not result.get("isError", False)
+        assert result["structuredContent"] == {"result": 1}
+        blocked = client.post(
+            "/mcp/",
+            headers={**headers, "Host": "untrusted.example"},
+            json={"jsonrpc": "2.0", "id": 4, "method": "tools/list", "params": {}},
+        )
+        assert blocked.status_code == 421

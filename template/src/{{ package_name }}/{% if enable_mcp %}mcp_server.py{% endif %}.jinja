@@ -1,0 +1,19 @@
+"""Explicit, read-only MCP tools sharing the HTTP application's business logic."""
+
+import asyncio
+
+from mcp.server.mcpserver import MCPServer
+from mcp.types import ToolAnnotations
+
+from .db import count_messages
+
+
+def create_mcp_server() -> MCPServer:
+    server = MCPServer({{ project_name | tojson }})
+
+    @server.tool(annotations=ToolAnnotations(read_only_hint=True))
+    async def get_message_count() -> int:
+        """Return the number of persisted messages."""
+        return await asyncio.to_thread(count_messages)
+
+    return server

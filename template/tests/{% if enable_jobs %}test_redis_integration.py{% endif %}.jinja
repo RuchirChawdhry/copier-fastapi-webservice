@@ -1,5 +1,8 @@
 """Real HTTP, Redis Streams, Taskiq worker and SQLite integration."""
 
+{% if enable_mcp %}
+import asyncio
+{% endif %}
 import os
 import shutil
 import socket
@@ -10,6 +13,9 @@ from contextlib import contextmanager
 
 import httpx
 import pytest
+{% if enable_mcp %}
+from mcp import Client
+{% endif %}
 from redis import Redis
 from redis.exceptions import RedisError
 
@@ -94,3 +100,15 @@ def test_real_job_delivery(tmp_path):
                 worker,
                 worker_log,
             )
+{% if enable_mcp %}
+
+            async def verify_mcp():
+                async with Client(f"http://127.0.0.1:{api_port}/mcp/") as mcp:
+                    listed = await mcp.list_tools()
+                    assert [tool.name for tool in listed.tools] == ["get_message_count"]
+                    result = await mcp.call_tool("get_message_count", {})
+                    assert not result.is_error
+                    assert result.structured_content == {"result": 1}
+
+            asyncio.run(verify_mcp())
+{% endif %}

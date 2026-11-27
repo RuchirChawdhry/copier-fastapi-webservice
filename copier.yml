@@ -51,3 +51,8 @@ enable_jobs:
   type: bool
   help: Include Redis-backed Taskiq background jobs and periodic scheduling?
   default: true
+
+enable_mcp:
+  type: bool
+  help: Include an MCP server for AI agents over Streamable HTTP?
+  default: false

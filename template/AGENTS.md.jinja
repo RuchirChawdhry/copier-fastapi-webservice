@@ -22,6 +22,9 @@ or live systemd units during development.
 - `jobs.py` and `worker.py`: independent Taskiq job execution.
 - `scheduler.py`: dedicated sequential dispatcher, never started by API workers.
 {% endif %}
+{% if enable_mcp %}
+- `mcp_server.py`: explicitly registered MCP tools; reuse domain functions; loopback only by default.
+{% endif %}
 - `deploy/install.sh`: explicit Ubuntu systemd installation.
 
 Use uv and the interpreter declared in `.python-version`. Keep the API bound to loopback

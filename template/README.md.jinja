@@ -49,6 +49,30 @@ Task delivery can be repeated after worker failure; design side effects to be id
 Keep the default loopback binding unless authentication and network exposure
 are explicitly configured.
 
+{% if enable_mcp %}
+## MCP for AI agents
+
+The official MCP Python SDK serves Streamable HTTP on the existing API process.
+Connect your MCP client to `http://127.0.0.1:8000/mcp/` (adjust the port if configured).
+The included `get_message_count` tool reads the same SQLite database as the HTTP API.
+Add explicitly scoped tools in `mcp_server.py`; do not expose arbitrary shell commands,
+filesystem access or all HTTP routes automatically. DNS rebinding protection stays enabled.
+The endpoint is unauthenticated and intended for loopback use only. Configure authentication,
+TLS and explicit host/origin allowlists before remote exposure.
+
+Example client configuration (client-specific keys may vary):
+
+```json
+{
+  "mcpServers": {
+    "{{ project_slug }}": {
+      "url": "http://127.0.0.1:8000/mcp/"
+    }
+  }
+}
+```
+
+{% endif %}
 ## Ubuntu deployment
 
 After running `uv sync` and configuring `.env`, execute:

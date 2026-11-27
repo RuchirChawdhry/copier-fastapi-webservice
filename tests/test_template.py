@@ -1,4 +1,4 @@
-"""Validate both Copier variants and centralized CI delegation."""
+"""Validate all Copier feature combinations and centralized CI delegation."""
 
 import tomllib
 from pathlib import Path
@@ -9,22 +9,23 @@ from copier import run_copy
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.fixture(params=[True, False], ids=["jobs", "minimal"])
+@pytest.fixture(params=[(True, False), (False, False), (True, True), (False, True)])
 def generated(tmp_path: Path, request):
+    jobs, mcp = request.param
     destination = tmp_path / "generated"
     run_copy(
         str(ROOT),
         destination,
-        data={"project_name": "Demo Service", "enable_jobs": request.param},
+        data={"project_name": "Demo Service", "enable_jobs": jobs, "enable_mcp": mcp},
         defaults=True,
         unsafe=False,
         vcs_ref="HEAD",
     )
-    return destination, request.param
+    return destination, jobs, mcp
 
 
 def test_generated_features(generated):
-    root, enabled = generated
+    root, enabled, mcp = generated
     config = tomllib.loads((root / "pyproject.toml").read_text())
     dependencies = config["project"]["dependencies"]
     assert "fastapi" in dependencies
@@ -35,6 +36,10 @@ def test_generated_features(generated):
     assert "orjson" not in dependencies
     assert "uvicorn[standard]" in dependencies
     assert "psutil" in dependencies
+    assert "httpx2" in config["dependency-groups"]["dev"]
+    assert any(dep.startswith("mcp>=") for dep in dependencies) == mcp
+    assert (root / "src/demo_service/mcp_server.py").exists() == mcp
+    assert (root / "tests/test_mcp.py").exists() == mcp
     assert {"pre-commit", "pytest-benchmark", "ty"} <= set(config["dependency-groups"]["dev"])
     assert (root / "Taskfile.yml").is_file()
     assert (root / ".pre-commit-config.yaml").is_file()
@@ -53,7 +58,7 @@ def test_generated_features(generated):
 
 
 def test_ci_contract(generated):
-    root, _ = generated
+    root, _, _ = generated
     workflow = (root / ".github/workflows/ci.yml").read_text()
     assert "pull_request:" in workflow
     assert "workflow_dispatch:" not in workflow

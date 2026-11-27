@@ -5,18 +5,23 @@ import sqlite3
 from contextlib import asynccontextmanager
 
 {% if enable_jobs %}
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 from redis.exceptions import RedisError
 from taskiq.exceptions import SendTaskError
 {% else %}
-from fastapi import FastAPI, Response, status
+from fastapi import APIRouter, FastAPI, Response, status
 from pydantic import BaseModel
 {% endif %}
 
 from .db import check_database, count_messages, init_db
 {% if enable_jobs %}
 from .jobs import submit_message
+{% endif %}
+{% if enable_mcp %}
+from .mcp_server import create_mcp_server
+{% endif %}
+{% if enable_jobs %}
 from .queue import broker, new_pool
 {% endif %}
 
@@ -44,29 +49,39 @@ async def lifespan(app: FastAPI):
         await broker.startup()
     app.state.redis = await new_pool()
     try:
+{% if enable_mcp %}
+        if broker.is_worker_process:
+            yield
+        else:
+            async with app.state.mcp.session_manager.run():
+                yield
+{% else %}
         yield
+{% endif %}
     finally:
         await app.state.redis.aclose()
         if not broker.is_worker_process:
             await broker.shutdown()
 {% else %}
+{% if enable_mcp %}
+    async with app.state.mcp.session_manager.run():
+        yield
+{% else %}
     yield
+{% endif %}
 {% endif %}
 
 
-app = FastAPI(
-    title={{ project_name | tojson }},
-    lifespan=lifespan,
-)
+router = APIRouter()
 
 
-@app.get("/health/live")
+@router.get("/health/live")
 async def liveness() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/health")
-@app.get("/health/ready")
+@router.get("/health")
+@router.get("/health/ready")
 async def health(
 {% if enable_jobs %}
     request: Request,
@@ -91,13 +106,13 @@ async def health(
     return HealthResponse(status="ok" if ready else "unavailable", dependencies=dependencies)
 
 
-@app.get("/messages/count")
+@router.get("/messages/count")
 async def message_count() -> dict[str, int]:
     return {"count": await asyncio.to_thread(count_messages)}
 {% if enable_jobs %}
 
 
-@app.post("/jobs", response_model=JobReceipt, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/jobs", response_model=JobReceipt, status_code=status.HTTP_202_ACCEPTED)
 async def enqueue_job(payload: JobRequest) -> JobReceipt:
     try:
         async with asyncio.timeout(10):
@@ -106,3 +121,24 @@ async def enqueue_job(payload: JobRequest) -> JobReceipt:
         raise HTTPException(status_code=503, detail="Job queue unavailable") from exc
     return JobReceipt(job_id=job_id)
 {% endif %}
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title={{ project_name | tojson }}, lifespan=lifespan)
+    app.include_router(router)
+{% if enable_mcp %}
+    server = create_mcp_server()
+    app.state.mcp = server
+    app.mount(
+        "/mcp",
+        server.streamable_http_app(
+            streamable_http_path="/",
+            stateless_http=True,
+            json_response=True,
+        ),
+    )
+{% endif %}
+    return app
+
+
+app = create_app()

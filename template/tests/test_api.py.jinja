@@ -50,6 +50,9 @@ def test_api_health_and_readiness(monkeypatch):
         assert response.status_code == 200
         assert response.json()["dependencies"]["sqlite"] == "ok"
         assert client.get("/messages/count").json() == {"count": 0}
+{% if not enable_mcp %}
+        assert client.post("/mcp/", json={}).status_code == 404
+{% endif %}
 {% if enable_jobs %}
         assert response.json()["dependencies"]["redis"] == "ok"
         assert client.post("/jobs", json={"message": "hello"}).status_code == 202

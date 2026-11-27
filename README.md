@@ -32,3 +32,9 @@ uv run --no-project --with copier --with pytest pytest tests -q
 
 Generated projects include `task setup`, `task check`, `task benchmark` and `task resources`.
 Taskiq uses a per-project Redis stream and expires results after 24 hours.
+
+## Optional MCP
+
+Answer `enable_mcp=true` during Copier generation to include the official MCP Python
+SDK and a Streamable HTTP endpoint at `http://127.0.0.1:8000/mcp/`. MCP is disabled
+by default and independent of Taskiq. CI renders and validates all four combinations.
