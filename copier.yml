@@ -56,3 +56,8 @@ enable_mcp:
   type: bool
   help: Include an MCP server for AI agents over Streamable HTTP?
   default: false
+
+enable_ntfy:
+  type: bool
+  help: Include outbound ntfy push notifications?
+  default: false

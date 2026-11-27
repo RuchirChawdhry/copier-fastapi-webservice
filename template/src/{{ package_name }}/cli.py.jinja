@@ -137,3 +137,18 @@ def resources() -> None:
     from .resources import resource_snapshot
 
     print(json.dumps(resource_snapshot()))
+{% if enable_ntfy %}
+
+
+@app.command
+async def notify(
+    message: str,
+    title: str = "{{ project_name }}",
+    priority: int = 3,
+) -> None:
+    """Publish a push notification to the configured ntfy topic."""
+    from .notifications import notify as publish
+
+    message_id = await publish(message, title=title, priority=priority)
+    console.print(f"[green]Published[/green] {message_id}")
+{% endif %}

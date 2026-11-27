@@ -1,0 +1,43 @@
+"""Publish application events to an explicitly configured ntfy server."""
+
+from typing import Annotated
+
+import httpx2
+from pydantic import BaseModel, Field
+
+from .config import get_settings
+
+
+class Notification(BaseModel):
+    message: Annotated[str, Field(min_length=1)]
+    title: str = "{{ project_name }}"
+    priority: Annotated[int, Field(ge=1, le=5)] = 3
+    tags: list[str] = Field(default_factory=list)
+
+
+async def notify(
+    message: str,
+    *,
+    title: str = "{{ project_name }}",
+    priority: int = 3,
+    tags: list[str] | None = None,
+) -> str:
+    """Publish one notification and return its ntfy message ID."""
+    settings = get_settings()
+    if settings.ntfy_url is None or settings.ntfy_topic is None:
+        raise ValueError("Configure NTFY_URL and NTFY_TOPIC before publishing")
+
+    notification = Notification(message=message, title=title, priority=priority, tags=tags or [])
+    headers = (
+        {"Authorization": f"Bearer {settings.ntfy_token.get_secret_value()}"}
+        if settings.ntfy_token
+        else {}
+    )
+    async with httpx2.AsyncClient(timeout=settings.ntfy_timeout_seconds) as client:
+        response = await client.post(
+            str(settings.ntfy_url).rstrip("/") + "/",
+            json={"topic": settings.ntfy_topic, **notification.model_dump()},
+            headers=headers,
+        )
+        response.raise_for_status()
+        return str(response.json()["id"])

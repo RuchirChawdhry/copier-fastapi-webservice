@@ -74,6 +74,27 @@ Example client configuration (client-specific keys may vary):
 ```
 
 {% endif %}
+{% if enable_ntfy %}
+## Push notifications
+
+Configure an existing self-hosted or hosted ntfy server with `NTFY_URL`, `NTFY_TOPIC`,
+and optionally `NTFY_TOKEN` in the private project-root `.env`. Use a protected topic
+and HTTPS when sending credentials over a network. No destination is configured by default.
+
+```bash
+uv run {{ cli_command }} notify "Backup completed" --title Backup --priority 3
+```
+
+Call `await notify("Backup completed", tags=["white_check_mark"])` from
+`{{ package_name }}.notifications` in async application code. Priority ranges from 1 to 5.
+The function returns the accepted message ID or raises on failure. It uses a bounded HTTP
+timeout and does not retry automatically, since a retry may duplicate a notification.
+
+Publishing is explicit: no automatic startup notifications, log forwarding, public HTTP
+or MCP publishing tool. ntfy is not a required readiness dependency. Do not include secrets
+or personal data in notification messages. The template does not provision an ntfy server.
+
+{% endif %}
 ## Ubuntu deployment
 
 After running `uv sync` and configuring `.env`, execute:

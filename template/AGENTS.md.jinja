@@ -25,6 +25,9 @@ or live systemd units during development.
 {% if enable_mcp %}
 - `mcp_server.py`: explicitly registered FastMCP tools; reuse domain functions; loopback only by default.
 {% endif %}
+{% if enable_ntfy %}
+- `notifications.py`: explicit outbound ntfy publishing; never forward arbitrary logs or secrets.
+{% endif %}
 - `deploy/install.sh`: explicit Ubuntu systemd installation.
 
 Use uv and the interpreter declared in `.python-version`. Keep the API bound to loopback

@@ -34,3 +34,16 @@ jobs:
       copier-data: '{"enable_jobs": false, "enable_mcp": true}'
       artifact-suffix: '-minimal-mcp'
       python-typecheck: true
+  minimal-ntfy:
+    uses: RuchirChawdhry/ci-workflows/.github/workflows/copier-ci.yml@main
+    with:
+      copier-data: '{"enable_jobs": false, "enable_ntfy": true}'
+      artifact-suffix: '-minimal-ntfy'
+      python-typecheck: true
+  all-features:
+    uses: RuchirChawdhry/ci-workflows/.github/workflows/copier-ci.yml@main
+    with:
+      copier-data: '{"enable_jobs": true, "enable_mcp": true, "enable_ntfy": true}'
+      artifact-suffix: '-all-features'
+      python-typecheck: true
+      redis-integration: true

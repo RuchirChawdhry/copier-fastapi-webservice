@@ -36,4 +36,10 @@ Taskiq uses a per-project Redis stream and expires results after 24 hours.
 ## Optional MCP
 
 Answer `enable_mcp=true` during Copier generation to include standalone FastMCP and a Streamable HTTP endpoint at `http://127.0.0.1:8000/mcp/`. MCP is disabled
-by default and independent of Taskiq. CI renders and validates all four combinations.
+by default and independent of Taskiq. CI renders all eight combinations of the three optional features and runs six representative profiles.
+
+## Optional ntfy
+
+Answer `enable_ntfy=true` to generate a notification publisher and CLI command.
+Configure your existing ntfy server and private topic in `.env`. No external service is
+contacted until explicitly publishing; ntfy does not require Redis or FastMCP.
