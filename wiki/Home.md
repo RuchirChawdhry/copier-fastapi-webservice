@@ -14,7 +14,8 @@ Generate backend-only Python services for Ubuntu, with FastAPI, uv, SQLite and s
 ## Quick start
 
 ```bash
-uvx copier copy --vcs-ref HEAD gh:RuchirChawdhry/copier-fastapi-webservice backup-service
+uvx copier copy --vcs-ref HEAD --data 'project_name=Backup Service' \
+  gh:RuchirChawdhry/copier-fastapi-webservice backup-service
 cd backup-service
 git init -b main
 task setup
