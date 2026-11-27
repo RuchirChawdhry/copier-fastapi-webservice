@@ -43,3 +43,8 @@ author_name:
   type: str
   help: Copyright holder
   default: Ruchir Chawdhry
+
+enable_jobs:
+  type: bool
+  help: Include Redis-backed ARQ background jobs and periodic scheduling?
+  default: true

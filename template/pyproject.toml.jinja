@@ -11,15 +11,18 @@ requires-python = ">=3.14"
 license = "MIT"
 authors = [{ name = "{{ author_name }}" }]
 dependencies = [
-    "arq>=0.28",
     "cyclopts",
     "fastapi",
     "loguru",
+    "pydantic",
+    "rich",
+    "pydantic-settings",
+    "uvicorn",
+{% if enable_jobs %}
+    "arq>=0.28",
     "orjson",
     "redis>=5",
-    "rich",
-    "schedule",
-    "uvicorn",
+{% endif %}
 ]
 
 [project.scripts]

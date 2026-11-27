@@ -1,26 +1,30 @@
 # Agent instructions for {{ project_name }}
 
-Independent backend-only Python webservice. Never alter another project's virtualenv, Python installation, shared workflow repository, or active systemd units during development.
+Independent backend-only Python service. Never alter other projects, shared infrastructure,
+or live systemd units during development.
 
-## Strict TDD
+## Validation
 
-1. Write a failing pytest test for the requested behavior, including failure paths.
-2. Implement the smallest change to make the test pass.
-3. Refactor while retaining green tests.
-4. Run `uv run ruff check .`, `uv run ruff format --check .`, and `uv run pytest -q`.
+- Reuse established libraries; avoid unnecessary abstractions and defensive code.
+- Keep HTTP and CLI adapters thin, with business logic outside them.
+- Add focused tests for changed behavior. Strict test-first development is not required.
+- Run `uv run ruff check .`, `uv run ruff format --check .`, and `uv run pytest -q`.
+- Verify real infrastructure interactions before claiming integration success.
+- Do not weaken lint or tests to pass CI.
 
 ## Architecture
 
-- `api.py`: FastAPI HTTP routes only, no long-running background tasks.
-- `jobs.py` + `worker.py`: ARQ Redis jobs, separate worker process.
-- `scheduler.py`: one dedicated process dispatching periodic jobs; never start this in FastAPI lifespan or each uvicorn worker.
-- `db.py`: SQLite persistence with short connections, WAL and transactions.
-- `cli.py`: Cyclopts + Rich. Thin adapters, business logic elsewhere.
-- `config.py`: environment-only configuration.
-- `deploy/install.sh`: Ubuntu systemd installation requiring explicit sudo invocation.
+- `api.py`: typed FastAPI routes and dependency readiness.
+- `db.py`: SQLite persistence, WAL and short transactions.
+- `config.py`: cached validated settings; environment overrides project-root .env.
+- `cli.py`: Cyclopts + Rich, thin adapters.
+{% if enable_jobs %}
+- `jobs.py` and `worker.py`: independent ARQ job execution.
+- `scheduler.py`: dedicated sequential dispatcher, never started by API workers.
+{% endif %}
+- `deploy/install.sh`: explicit Ubuntu systemd installation.
 
-Python 3.14.7, uv-managed project, Ruff + pytest. Keep HTTP bound to loopback unless reverse proxy, authentication and network exposure are explicitly designed. No frontend or HTML routes. Prefer small modules and injectable dependencies. Preserve the generated central reusable CI caller; it is PR-only.
-
-## Operational safety
-
-Do not use `--reload` under systemd. Do not start the scheduler from the API process. Do not run arbitrary shell commands supplied through HTTP or jobs. Keep `.env`, data files and credentials out of version control. Deploy with the minimum privileges required.
+Use uv and the interpreter declared in `.python-version`. Keep the API bound to loopback
+unless authentication and network exposure are explicitly designed. Never commit secrets
+or run user-supplied shell commands. Do not use reload in systemd. Keep generated CI delegated
+to the centralized reusable workflows.

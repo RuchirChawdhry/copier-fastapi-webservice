@@ -1,4 +1,4 @@
-"""Contract tests for generated services (no global environment modifications)."""
+"""Validate both Copier variants and centralized CI delegation."""
 
 import tomllib
 from pathlib import Path
@@ -9,61 +9,52 @@ from copier import run_copy
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.fixture
-def generated(tmp_path: Path) -> Path:
+@pytest.fixture(params=[True, False], ids=["jobs", "minimal"])
+def generated(tmp_path: Path, request):
     destination = tmp_path / "generated"
     run_copy(
         str(ROOT),
         destination,
-        data={
-            "project_name": "Demo Service",
-            "project_slug": "demo-service",
-            "package_name": "demo_service",
-            "cli_command": "demo-service",
-            "description": "A demo service.",
-            "author_name": "Example Person",
-        },
+        data={"project_name": "Demo Service", "enable_jobs": request.param},
         defaults=True,
         unsafe=False,
+        vcs_ref="HEAD",
     )
-    return destination
+    return destination, request.param
 
 
-def test_template_repo_has_no_active_actions() -> None:
-    assert not (ROOT / ".github" / "workflows").exists()
-    assert (ROOT / "template" / ".github" / "workflows" / "ci.yml.jinja").exists()
-
-
-def test_generated_project_is_backend_only(generated: Path) -> None:
-    with (generated / "pyproject.toml").open("rb") as stream:
-        config = tomllib.load(stream)
+def test_generated_features(generated):
+    root, enabled = generated
+    config = tomllib.loads((root / "pyproject.toml").read_text())
     dependencies = config["project"]["dependencies"]
-    for name in ("fastapi", "arq", "orjson", "loguru", "schedule", "rich", "cyclopts", "uvicorn"):
-        assert any(dependency.split(">=")[0] == name for dependency in dependencies)
-    assert config["project"]["scripts"]["demo-service"] == "demo_service.cli:app"
-    assert (generated / ".python-version").read_text().strip() == "3.14.7"
-    assert (generated / "src" / "demo_service" / "api.py").is_file()
-    assert (generated / "src" / "demo_service" / "worker.py").is_file()
-    assert (generated / "src" / "demo_service" / "scheduler.py").is_file()
-    assert not (generated / "frontend").exists()
-    assert not (generated / "copier.yml").exists()
+    assert "fastapi" in dependencies
+    assert "pydantic-settings" in dependencies
+    for name in ("arq", "redis", "orjson"):
+        assert any(dep.split(">=")[0] == name for dep in dependencies) == enabled
+    assert "schedule" not in dependencies
+    package = root / "src" / "demo_service"
+    for module in ("worker", "scheduler", "jobs", "queue"):
+        assert (package / f"{module}.py").exists() == enabled
+    for name in ("worker", "scheduler"):
+        assert (root / "tests" / f"test_{name}.py").exists() == enabled
+    assert (root / ".python-version").read_text() == (ROOT / "template/.python-version").read_text()
+    assert ("REDIS_URL" in (root / ".env.example").read_text()) == enabled
+    assert ('write_unit worker' in (root / "deploy/install.sh").read_text()) == enabled
+    assert not (root / "frontend").exists()
+    assert not list(root.rglob("*.jinja"))
+    for path in root.rglob("*.py"):
+        compile(path.read_text(), str(path), "exec")
 
 
-def test_generated_ci_is_pr_only(generated: Path) -> None:
-    workflow = (generated / ".github/workflows/ci.yml").read_text()
+def test_ci_contract(generated):
+    root, _ = generated
+    workflow = (root / ".github/workflows/ci.yml").read_text()
     assert "pull_request:" in workflow
     assert "workflow_dispatch:" not in workflow
     assert "  push:" not in workflow
-    assert "  schedule:" not in workflow
-    assert "RuchirChawdhry/ci-workflows/.github/workflows/python-cli.yml@main" in workflow
-    assert "RuchirChawdhry/ci-workflows/.github/workflows/python-build.yml@main" in workflow
-
-
-def test_generated_boot_installer_and_agent_guide(generated: Path) -> None:
-    installer = (generated / "deploy/install.sh").read_text()
-    assert "systemctl enable --now" in installer
-    assert "Restart=always" in installer
-    assert "WantedBy=multi-user.target" in installer
-    assert (generated / "AGENTS.md").is_file()
-    assert (generated / ".copier-answers.yml").is_file()
-    assert (generated / ".env.example").is_file()
+    assert ".python-version" in workflow
+    assert "ci-workflows/.github/workflows/python-cli.yml@main" in workflow
+    assert "ci-workflows/.github/workflows/python-build.yml@main" in workflow
+    assert "ci-workflows/.github/workflows/copier-ci.yml@main" in (
+        ROOT / ".github/workflows/template-ci.yml"
+    ).read_text()

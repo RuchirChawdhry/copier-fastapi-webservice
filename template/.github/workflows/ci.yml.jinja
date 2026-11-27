@@ -1,4 +1,3 @@
-# Only generated projects receive this workflow; the template repository has no active workflows.
 name: Python webservice CI
 
 on:
@@ -8,14 +7,27 @@ permissions:
   contents: read
 
 jobs:
+  version:
+    runs-on: ubuntu-slim
+    outputs:
+      python: {% raw %}${{ steps.version.outputs.python }}{% endraw %}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: version
+        run: echo "python=$(cat .python-version)" >> "$GITHUB_OUTPUT"
+
   quality:
+    needs: version
     uses: RuchirChawdhry/ci-workflows/.github/workflows/python-cli.yml@main
     with:
-      python-version: '3.14.7'
+      python-version: {% raw %}${{ needs.version.outputs.python }}{% endraw %}
       cli-command: '{{ cli_command }}'
 
   distribution:
+    needs: version
     uses: RuchirChawdhry/ci-workflows/.github/workflows/python-build.yml@main
     with:
-      python-version: '3.14.7'
+      python-version: {% raw %}${{ needs.version.outputs.python }}{% endraw %}
       cli-command: '{{ cli_command }}'

@@ -6,7 +6,6 @@ import orjson
 
 from .db import init_db
 from .jobs import save_message
-from .queue import redis_settings
 
 
 async def on_startup(ctx: dict) -> None:
@@ -16,7 +15,6 @@ async def on_startup(ctx: dict) -> None:
 class WorkerSettings:
     functions = [save_message]
     on_startup = on_startup
-    redis_settings = redis_settings()
     job_serializer = orjson.dumps
     job_deserializer = orjson.loads
     max_jobs = 10

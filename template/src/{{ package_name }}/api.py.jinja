@@ -1,0 +1,103 @@
+"""HTTP API with typed response serialization and dependency readiness."""
+
+import asyncio
+import sqlite3
+from contextlib import asynccontextmanager
+
+{% if enable_jobs %}
+from fastapi import FastAPI, HTTPException, Request, Response, status
+from pydantic import BaseModel, Field
+from redis.exceptions import RedisError
+{% else %}
+from fastapi import FastAPI, Response, status
+from pydantic import BaseModel
+{% endif %}
+
+from .db import check_database, count_messages, init_db
+{% if enable_jobs %}
+from .queue import new_pool
+{% endif %}
+
+
+class HealthResponse(BaseModel):
+    status: str
+    dependencies: dict[str, str]
+
+
+{% if enable_jobs %}
+class JobRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
+class JobReceipt(BaseModel):
+    job_id: str
+
+
+{% endif %}
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await asyncio.to_thread(init_db)
+{% if enable_jobs %}
+    app.state.redis = await new_pool()
+    try:
+        yield
+    finally:
+        await app.state.redis.aclose()
+{% else %}
+    yield
+{% endif %}
+
+
+app = FastAPI(
+    title={{ project_name | tojson }},
+    lifespan=lifespan,
+)
+
+
+@app.get("/health/live")
+async def liveness() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/health")
+@app.get("/health/ready")
+async def health(
+{% if enable_jobs %}
+    request: Request,
+{% endif %}
+    response: Response,
+) -> HealthResponse:
+    dependencies = {"sqlite": "ok"}
+    try:
+        await asyncio.to_thread(check_database)
+    except (OSError, sqlite3.Error):
+        dependencies["sqlite"] = "unavailable"
+{% if enable_jobs %}
+    try:
+        async with asyncio.timeout(2):
+            await request.app.state.redis.ping()
+        dependencies["redis"] = "ok"
+    except (OSError, RedisError, TimeoutError):
+        dependencies["redis"] = "unavailable"
+{% endif %}
+    ready = all(value == "ok" for value in dependencies.values())
+    response.status_code = status.HTTP_200_OK if ready else status.HTTP_503_SERVICE_UNAVAILABLE
+    return HealthResponse(status="ok" if ready else "unavailable", dependencies=dependencies)
+
+
+@app.get("/messages/count")
+async def message_count() -> dict[str, int]:
+    return {"count": await asyncio.to_thread(count_messages)}
+{% if enable_jobs %}
+
+
+@app.post("/jobs", response_model=JobReceipt, status_code=status.HTTP_202_ACCEPTED)
+async def enqueue_job(payload: JobRequest, request: Request) -> JobReceipt:
+    try:
+        job = await request.app.state.redis.enqueue_job("save_message", payload.message)
+    except (OSError, RedisError) as exc:
+        raise HTTPException(status_code=503, detail="Job queue unavailable") from exc
+    if job is None:
+        raise HTTPException(status_code=503, detail="Job was not accepted")
+    return JobReceipt(job_id=job.job_id)
+{% endif %}

@@ -1,0 +1,27 @@
+"""Validated process-local configuration; environment overrides .env."""
+
+from functools import cache
+from pathlib import Path
+from typing import Literal
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    host: str = Field(default="127.0.0.1", validation_alias="APP_HOST")
+    port: int = Field(default=8000, ge=1, le=65535, validation_alias="APP_PORT")
+    database_path: Path = Path("data/app.sqlite3")
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+{% if enable_jobs %}
+    redis_url: str = "redis://127.0.0.1:6379/0"
+    schedule_interval_seconds: int = Field(default=300, ge=1)
+{% endif %}
+
+
+@cache
+def get_settings() -> Settings:
+    """Load settings once per process."""
+    return Settings()

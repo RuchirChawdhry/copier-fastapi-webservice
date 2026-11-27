@@ -1,0 +1,14 @@
+name: Template CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    uses: RuchirChawdhry/ci-workflows/.github/workflows/copier-ci.yml@main

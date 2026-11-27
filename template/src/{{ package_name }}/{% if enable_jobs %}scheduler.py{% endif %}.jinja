@@ -1,0 +1,38 @@
+"""Sequential periodic dispatch without polling or overlapping submissions."""
+
+import asyncio
+from collections.abc import Awaitable, Callable
+
+from loguru import logger
+from redis.exceptions import RedisError
+
+from .config import get_settings
+from .queue import new_pool
+
+
+async def run_periodic(callback: Callable[[], Awaitable[None]], interval: int) -> None:
+    while True:
+        await asyncio.sleep(interval)
+        await callback()
+
+
+async def run_scheduler() -> None:
+    settings = get_settings()
+    redis = await new_pool()
+
+    async def submit_heartbeat() -> None:
+        try:
+            async with asyncio.timeout(10):
+                job = await redis.enqueue_job("save_message", "scheduled heartbeat")
+            if job is None:
+                logger.warning("Scheduled job was not accepted")
+            else:
+                logger.info("Enqueued scheduled job {}", job.job_id)
+        except (OSError, RedisError, TimeoutError):
+            logger.exception("Unable to enqueue scheduled job")
+
+    logger.info("Scheduler active: interval={}s", settings.schedule_interval_seconds)
+    try:
+        await run_periodic(submit_heartbeat, settings.schedule_interval_seconds)
+    finally:
+        await redis.aclose()

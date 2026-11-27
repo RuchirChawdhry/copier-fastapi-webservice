@@ -1,0 +1,21 @@
+import asyncio
+
+import pytest
+
+from {{ package_name }}.scheduler import run_periodic
+
+
+def test_scheduler_waits_and_dispatches_sequentially(monkeypatch):
+    events = []
+
+    async def sleep(interval):
+        events.append(interval)
+
+    async def callback():
+        events.append("dispatch")
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(asyncio, "sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(run_periodic(callback, 300))
+    assert events == [300, "dispatch"]

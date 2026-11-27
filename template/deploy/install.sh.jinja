@@ -45,7 +45,7 @@ write_unit() {
 [Unit]
 Description={{ project_name }} ($kind)
 Wants=network-online.target
-After=network-online.target redis-server.service
+After=network-online.target{% if enable_jobs %} redis-server.service{% endif %}
 StartLimitIntervalSec=0
 
 [Service]
@@ -53,7 +53,6 @@ Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$ROOT
 Environment=PYTHONUNBUFFERED=1
-EnvironmentFile=$ROOT/.env
 ExecStart=$ROOT/.venv/bin/{{ cli_command }} $command
 Restart=always
 RestartSec=5
@@ -69,14 +68,16 @@ EOF
 }
 
 write_unit api
+{% if enable_jobs %}
 write_unit worker
 write_unit scheduler
+{% endif %}
 
 systemctl daemon-reload
-for kind in api worker scheduler; do
+for kind in api{% if enable_jobs %} worker scheduler{% endif %}; do
   systemctl enable --now "{{ project_slug }}-$kind.service"
 done
 
-echo 'Installed and enabled three units. Inspect with:'
+echo 'Installed and enabled service units. Inspect with:'
 echo '  sudo systemctl status {{ project_slug }}-api.service'
-echo '  sudo journalctl -fu {{ project_slug }}-worker.service'
+echo '  sudo journalctl -fu {{ project_slug }}-api.service'

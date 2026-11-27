@@ -50,3 +50,10 @@ def count_messages(path: Path | None = None) -> int:
         row = connection.execute("SELECT count(*) FROM messages").fetchone()
         assert row is not None
         return int(row[0])
+
+
+def check_database() -> None:
+    """Check existing database and schema without creating a missing database."""
+    uri = get_settings().database_path.resolve().as_uri() + "?mode=ro"
+    with closing(sqlite3.connect(uri, uri=True, timeout=1)) as connection:
+        connection.execute("SELECT id FROM messages LIMIT 1").fetchone()

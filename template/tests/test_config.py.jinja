@@ -1,0 +1,22 @@
+import pytest
+from pydantic import ValidationError
+
+from {{ package_name }}.config import get_settings
+
+
+def test_dotenv_precedence_and_cache(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("APP_PORT", raising=False)
+    (tmp_path / ".env").write_text("APP_PORT=8123\n")
+    first = get_settings()
+    assert first.port == 8123
+    monkeypatch.setenv("APP_PORT", "9000")
+    assert get_settings() is first
+    get_settings.cache_clear()
+    assert get_settings().port == 9000
+
+
+def test_invalid_port(monkeypatch):
+    monkeypatch.setenv("APP_PORT", "70000")
+    with pytest.raises(ValidationError):
+        get_settings()

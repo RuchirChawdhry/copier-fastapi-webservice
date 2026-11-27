@@ -1,9 +1,7 @@
 """Thin Cyclopts interface to API, jobs, scheduling and Ubuntu status."""
 
-import asyncio
 import subprocess
 
-from arq.worker import run_worker
 from cyclopts import App
 from rich.console import Console
 from rich.table import Table
@@ -12,9 +10,6 @@ from .config import get_settings
 from .db import count_messages
 from .db import init_db as initialize_database
 from .logging_config import configure_logging
-from .queue import new_pool
-from .scheduler import run_scheduler
-from .worker import WorkerSettings
 
 app = App(name="{{ cli_command }}")
 console = Console()
@@ -32,23 +27,48 @@ def serve(host: str | None = None, port: int | None = None) -> None:
         host=host or settings.host,
         port=port or settings.port,
         workers=1,
+        log_config=None,
     )
 
 
+{% if enable_jobs %}
 @app.command
 def worker() -> None:
     """Start the long-running Redis ARQ worker."""
+    import asyncio
+
+    from arq.worker import run_worker
+
+    from .queue import redis_settings
+    from .worker import WorkerSettings
+
     configure_logging()
-    run_worker(WorkerSettings)
+    with asyncio.Runner() as runner:
+        runner.get_loop()
+        run_worker(WorkerSettings, redis_settings=redis_settings())
 
 
 @app.command
 def scheduler() -> None:
     """Start the independent periodic job dispatcher."""
+    import asyncio
+    import signal
+
+    from .scheduler import run_scheduler
+
+    async def main() -> None:
+        task = asyncio.create_task(run_scheduler())
+        asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, task.cancel)
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
     configure_logging()
-    asyncio.run(run_scheduler())
+    asyncio.run(main())
 
 
+{% endif %}
 @app.command
 def init_db() -> None:
     """Initialize the SQLite database."""
@@ -56,9 +76,13 @@ def init_db() -> None:
     console.print("[green]SQLite initialized[/green]")
 
 
+{% if enable_jobs %}
 @app.command
 async def enqueue(message: str) -> None:
     """Submit a message job to Redis."""
+    from .queue import new_pool
+
+    configure_logging()
     redis = await new_pool()
     try:
         job = await redis.enqueue_job("save_message", message)
@@ -69,13 +93,14 @@ async def enqueue(message: str) -> None:
         await redis.aclose()
 
 
+{% endif %}
 @app.command
 def status() -> None:
     """Show local database and systemd service status."""
     table = Table(title="{{ project_name }}")
     table.add_column("Component")
     table.add_column("Status")
-    for kind in ("api", "worker", "scheduler"):
+    for kind in ({% if enable_jobs %}"api", "worker", "scheduler"{% else %}"api",{% endif %}):
         unit = "{{ project_slug }}-" + kind + ".service"
         try:
             result = subprocess.run(

@@ -12,9 +12,15 @@ def test_cli_help():
     )
     assert result.returncode == 0, result.stderr
     assert "serve" in result.stdout
+{% if enable_jobs %}
     assert "worker" in result.stdout
     assert "scheduler" in result.stdout
     assert "enqueue" in result.stdout
+{% else %}
+    assert "worker" not in result.stdout
+    assert "scheduler" not in result.stdout
+    assert "enqueue" not in result.stdout
+{% endif %}
 
 
 def test_cli_initializes_database(tmp_path, monkeypatch):
