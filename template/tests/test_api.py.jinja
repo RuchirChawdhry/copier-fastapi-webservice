@@ -77,7 +77,6 @@ def test_api_health_and_readiness(monkeypatch):
 {% endif %}
 
 
-
 def test_gzip_negotiation():
     client = TestClient(api.create_app())
     try:
@@ -101,7 +100,9 @@ def test_gzip_preserves_event_stream():
 
     @application.get("/test-stream")
     def stream():
-        return StreamingResponse(iter(["data: " + "x" * 2048 + "\n\n"]), media_type="text/event-stream")
+        return StreamingResponse(
+            iter(["data: " + "x" * 2048 + "\n\n"]), media_type="text/event-stream"
+        )
 
     client = TestClient(application)
     try:

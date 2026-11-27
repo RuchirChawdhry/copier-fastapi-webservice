@@ -78,7 +78,9 @@ def sqlite_check() -> Check:
         check_database()
     except OSError, sqlite3.Error:
         return check(
-            "sqlite", "fail", "Database or messages schema is unavailable.",
+            "sqlite",
+            "fail",
+            "Database or messages schema is unavailable.",
             "Check DATABASE_PATH and permissions; initialize a new database with init-db.",
         )
     return check("sqlite", "pass", "Database schema is readable.")
@@ -108,7 +110,9 @@ def api_checks(settings: Settings, require_running: bool) -> list[Check]:
         return [
             port,
             check(
-                "http", "fail", f"Readiness check returned HTTP {response.status_code}.",
+                "http",
+                "fail",
+                f"Readiness check returned HTTP {response.status_code}.",
                 "Inspect service logs and dependency checks; verify the port belongs to the API.",
             ),
         ]
@@ -116,14 +120,16 @@ def api_checks(settings: Settings, require_running: bool) -> list[Check]:
         return [
             port,
             check(
-                "http", "fail", "Listener did not return a valid readiness response.",
+                "http",
+                "fail",
+                "Listener did not return a valid readiness response.",
                 "Check the configured port and API logs.",
             ),
         ]
 
 
 def systemd_checks() -> list[Check]:
-    kinds = ("api", {% if enable_jobs %}"worker", "scheduler"{% endif %})
+    kinds = ("api",{% if enable_jobs %} "worker", "scheduler"{% endif %})
     if not shutil.which("systemctl") or not Path("/run/systemd/system").is_dir():
         return [check("systemd", "skip", "Systemd is not running on this host.")]
     checks = []
@@ -149,7 +155,9 @@ def systemd_checks() -> list[Check]:
         elif load == "loaded":
             checks.append(
                 check(
-                    f"systemd.{kind}", "fail", f"{unit} is {active}.",
+                    f"systemd.{kind}",
+                    "fail",
+                    f"{unit} is {active}.",
                     f"Inspect journalctl -u {unit} and restart the service.",
                 )
             )
@@ -169,7 +177,9 @@ def redis_check(settings: Settings) -> Check:
             redis.ping()
     except OSError, RedisError, ValueError:
         return check(
-            "redis", "fail", "Redis ping failed.",
+            "redis",
+            "fail",
+            "Redis ping failed.",
             "Check REDIS_URL, Redis service status and credentials.",
         )
     return check("redis", "pass", "Redis responded to PING.")
@@ -198,7 +208,8 @@ def diagnose(*, require_running: bool = False) -> Report:
         configured = settings.ntfy_url is not None and settings.ntfy_topic is not None
         checks.append(
             check(
-                "ntfy", "pass" if configured else "warn",
+                "ntfy",
+                "pass" if configured else "warn",
                 "Destination configured; delivery not probed." if configured else "Not configured.",
                 None if configured else "Set NTFY_URL and NTFY_TOPIC if notifications are needed.",
             )
