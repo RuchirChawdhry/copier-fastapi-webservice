@@ -12,6 +12,7 @@ def test_cli_help():
     )
     assert result.returncode == 0, result.stderr
     assert "serve" in result.stdout
+    assert "doctor" in result.stdout
 {% if enable_jobs %}
     assert "worker" in result.stdout
     assert "scheduler" in result.stdout

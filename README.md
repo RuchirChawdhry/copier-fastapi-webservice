@@ -30,7 +30,7 @@ Template CI uses the shared Copier workflow, and generated-project CI remains PR
 uv run --no-project --with copier --with pytest pytest tests -q
 ```
 
-Generated projects include `task setup`, `task check`, `task benchmark` and `task resources`.
+Generated projects include `task setup`, `task check`, `task benchmark`, `task doctor` and `task resources`.
 Taskiq uses a per-project Redis stream and expires results after 24 hours.
 
 ## Optional MCP
@@ -43,3 +43,6 @@ by default and independent of Taskiq. CI renders all eight combinations of the t
 Answer `enable_ntfy=true` to generate a notification publisher and CLI command.
 Configure your existing ntfy server and private topic in `.env`. No external service is
 contacted until explicitly publishing; ntfy does not require Redis or FastMCP.
+
+HTTP responses use built-in gzip compression (1024-byte threshold, level 5).
+`task doctor` reports actionable JSON diagnostics without repairing or starting services.

@@ -6,11 +6,13 @@ from contextlib import asynccontextmanager
 
 {% if enable_jobs %}
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response, status
+from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field
 from redis.exceptions import RedisError
 from taskiq.exceptions import SendTaskError
 {% else %}
 from fastapi import APIRouter, FastAPI, Response, status
+from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 {% endif %}
 
@@ -125,6 +127,7 @@ async def enqueue_job(payload: JobRequest) -> JobReceipt:
 
 def create_app() -> FastAPI:
     app = FastAPI(title={{ project_name | tojson }}, lifespan=lifespan)
+    app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
     app.include_router(router)
 {% if enable_mcp %}
     server = create_mcp_server()

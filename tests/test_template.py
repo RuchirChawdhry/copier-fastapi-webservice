@@ -42,8 +42,12 @@ def test_generated_features(generated):
     assert "orjson" not in dependencies
     assert "uvicorn[standard]" in dependencies
     assert "psutil" in dependencies
-    assert any(dep.startswith("httpx2") for dep in dependencies) == ntfy
-    assert ("httpx2" in config["dependency-groups"]["dev"]) != ntfy
+    assert any(dep.startswith("httpx2") for dep in dependencies)
+    assert "packaging" in dependencies
+    assert "httpx2" not in config["dependency-groups"]["dev"]
+    assert (root / "src/demo_service/doctor.py").exists()
+    assert "doctor:" in (root / "Taskfile.yml").read_text()
+    assert "GZipMiddleware" in (root / "src/demo_service/api.py").read_text()
     assert (root / "src/demo_service/notifications.py").exists() == ntfy
     assert (root / "tests/test_notifications.py").exists() == ntfy
     assert ("NTFY_URL" in (root / ".env.example").read_text()) == ntfy

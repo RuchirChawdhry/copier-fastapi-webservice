@@ -137,6 +137,18 @@ def resources() -> None:
     from .resources import resource_snapshot
 
     print(json.dumps(resource_snapshot()))
+
+
+@app.command
+def doctor(require_running: bool = False) -> None:
+    """Emit a JSON diagnostic report; exit 1 if a required check fails."""
+    import json
+
+    from .doctor import diagnose
+
+    report = diagnose(require_running=require_running)
+    print(json.dumps(report.model_dump(mode="json")))
+    raise SystemExit(1 if report.status == "fail" else 0)
 {% if enable_ntfy %}
 
 

@@ -1,0 +1,211 @@
+"""Read-only diagnostics for developers, operators and AI agents."""
+
+import shutil
+import socket
+import sqlite3
+import subprocess
+import sys
+from importlib.metadata import PackageNotFoundError, requires, version
+from pathlib import Path
+from typing import Literal
+
+import httpx2
+from packaging.requirements import Requirement
+from pydantic import BaseModel, ValidationError
+{% if enable_jobs %}
+from redis import Redis
+from redis.exceptions import RedisError
+{% endif %}
+
+from .config import Settings, get_settings
+from .db import check_database
+
+State = Literal["pass", "warn", "fail", "skip"]
+
+
+class Check(BaseModel):
+    id: str
+    status: State
+    detail: str
+    action: str | None = None
+
+
+class Report(BaseModel):
+    schema_version: int = 1
+    status: State
+    checks: list[Check]
+
+
+def check(id: str, status: State, detail: str, action: str | None = None) -> Check:
+    return Check(id=id, status=status, detail=detail, action=action)
+
+
+def python_check() -> Check:
+    actual = ".".join(map(str, sys.version_info[:3]))
+    pin = Path(".python-version")
+    if not pin.is_file():
+        return check("python", "warn", actual, "Run from the project root to verify the pin.")
+    expected = pin.read_text().strip()
+    if actual != expected:
+        return check("python", "fail", f"{actual}; expected {expected}", "Run task setup.")
+    return check("python", "pass", actual)
+
+
+def dependency_check() -> Check:
+    try:
+        entries = requires("{{ project_slug }}") or []
+    except PackageNotFoundError:
+        return check("dependencies", "fail", "Project is not installed.", "Run task setup.")
+    problems = []
+    for entry in entries:
+        requirement = Requirement(entry)
+        if requirement.marker and not requirement.marker.evaluate({"extra": ""}):
+            continue
+        try:
+            installed = version(requirement.name)
+        except PackageNotFoundError:
+            problems.append(f"{requirement.name}: missing")
+            continue
+        if not requirement.specifier.contains(installed, prereleases=True):
+            problems.append(f"{requirement.name}: incompatible version {installed}")
+    if problems:
+        return check("dependencies", "fail", "; ".join(problems), "Run task setup.")
+    return check("dependencies", "pass", "Direct runtime dependency versions are satisfied.")
+
+
+def sqlite_check() -> Check:
+    try:
+        check_database()
+    except OSError, sqlite3.Error:
+        return check(
+            "sqlite", "fail", "Database or messages schema is unavailable.",
+            "Check DATABASE_PATH and permissions; initialize a new database with init-db.",
+        )
+    return check("sqlite", "pass", "Database schema is readable.")
+
+
+def api_checks(settings: Settings, require_running: bool) -> list[Check]:
+    host = {"0.0.0.0": "127.0.0.1", "::": "::1"}.get(settings.host, settings.host)
+    url_host = f"[{host}]" if ":" in host and not host.startswith("[") else host
+    endpoint = f"http://{url_host}:{settings.port}"
+    unavailable: State = "fail" if require_running else "warn"
+    try:
+        with socket.create_connection((host, settings.port), timeout=2):
+            pass
+    except OSError:
+        return [
+            check("port", unavailable, "Configured endpoint is not listening.", "Start the API."),
+            check("http", "skip", "No listener to probe."),
+        ]
+    port = check("port", "pass", "Configured endpoint accepts TCP connections.")
+    try:
+        with httpx2.Client(timeout=3, trust_env=False) as client:
+            response = client.get(f"{endpoint}/health/ready")
+        if response.status_code == 200:
+            payload = response.json()
+            if isinstance(payload, dict) and payload.get("status") == "ok":
+                return [port, check("http", "pass", "API reports ready.")]
+        return [
+            port,
+            check(
+                "http", "fail", f"Readiness check returned HTTP {response.status_code}.",
+                "Inspect service logs and dependency checks; verify the port belongs to the API.",
+            ),
+        ]
+    except httpx2.HTTPError, ValueError:
+        return [
+            port,
+            check(
+                "http", "fail", "Listener did not return a valid readiness response.",
+                "Check the configured port and API logs.",
+            ),
+        ]
+
+
+def systemd_checks() -> list[Check]:
+    kinds = ("api", {% if enable_jobs %}"worker", "scheduler"{% endif %})
+    if not shutil.which("systemctl") or not Path("/run/systemd/system").is_dir():
+        return [check("systemd", "skip", "Systemd is not running on this host.")]
+    checks = []
+    for kind in kinds:
+        unit = f"{{ project_slug }}-{kind}.service"
+        try:
+            result = subprocess.run(
+                ["systemctl", "show", "--property=LoadState,ActiveState", unit],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=3,
+            )
+        except OSError, subprocess.TimeoutExpired:
+            checks.append(check("systemd", "warn", "Systemd query failed.", "Check systemctl."))
+            break
+        fields = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+        load, active = fields.get("LoadState"), fields.get("ActiveState")
+        if load == "loaded" and active == "active":
+            checks.append(check(f"systemd.{kind}", "pass", f"{unit} is active."))
+        elif load == "not-found":
+            checks.append(check(f"systemd.{kind}", "skip", f"{unit} is not installed."))
+        elif load == "loaded":
+            checks.append(
+                check(
+                    f"systemd.{kind}", "fail", f"{unit} is {active}.",
+                    f"Inspect journalctl -u {unit} and restart the service.",
+                )
+            )
+        else:
+            checks.append(
+                check(f"systemd.{kind}", "warn", "Unit status unknown.", f"Check systemctl {unit}.")
+            )
+    return checks
+{% if enable_jobs %}
+
+
+def redis_check(settings: Settings) -> Check:
+    try:
+        with Redis.from_url(
+            settings.redis_url, socket_connect_timeout=2, socket_timeout=2
+        ) as redis:
+            redis.ping()
+    except OSError, RedisError, ValueError:
+        return check(
+            "redis", "fail", "Redis ping failed.",
+            "Check REDIS_URL, Redis service status and credentials.",
+        )
+    return check("redis", "pass", "Redis responded to PING.")
+{% endif %}
+
+
+def diagnose(*, require_running: bool = False) -> Report:
+    checks = [python_check(), dependency_check()]
+    try:
+        settings = get_settings()
+    except ValidationError as error:
+        fields = ", ".join(
+            ".".join(map(str, item["loc"]))
+            for item in error.errors(include_input=False, include_context=False, include_url=False)
+        )
+        checks.append(
+            check("config", "fail", f"Invalid fields: {fields}", "Correct .env or environment.")
+        )
+    else:
+        checks.append(check("config", "pass", "Configuration is valid."))
+        checks.append(sqlite_check())
+{% if enable_jobs %}
+        checks.append(redis_check(settings))
+{% endif %}
+{% if enable_ntfy %}
+        configured = settings.ntfy_url is not None and settings.ntfy_topic is not None
+        checks.append(
+            check(
+                "ntfy", "pass" if configured else "warn",
+                "Destination configured; delivery not probed." if configured else "Not configured.",
+                None if configured else "Set NTFY_URL and NTFY_TOPIC if notifications are needed.",
+            )
+        )
+{% endif %}
+        checks.extend(api_checks(settings, require_running))
+    checks.extend(systemd_checks())
+    states = {item.status for item in checks}
+    status: State = "fail" if "fail" in states else "warn" if "warn" in states else "pass"
+    return Report(status=status, checks=checks)

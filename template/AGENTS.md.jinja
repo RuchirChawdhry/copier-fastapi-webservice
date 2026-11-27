@@ -18,6 +18,7 @@ or live systemd units during development.
 - `db.py`: SQLite persistence, WAL and short transactions.
 - `config.py`: cached validated settings; environment overrides project-root .env.
 - `cli.py`: Cyclopts + Rich, thin adapters.
+- `doctor.py`: read-only JSON diagnostics; run `task doctor` before changing infrastructure.
 {% if enable_jobs %}
 - `jobs.py` and `worker.py`: independent Taskiq job execution.
 - `scheduler.py`: dedicated sequential dispatcher, never started by API workers.

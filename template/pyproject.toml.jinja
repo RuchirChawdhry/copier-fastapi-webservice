@@ -13,15 +13,14 @@ authors = [{ name = "{{ author_name }}" }]
 dependencies = [
     "cyclopts",
     "fastapi",
+    "httpx2>=2.5",
+    "packaging",
     "loguru",
     "pydantic",
     "psutil",
     "pydantic-settings",
     "rich",
     "uvicorn[standard]",
-{% if enable_ntfy %}
-    "httpx2>=2.5",
-{% endif %}
 {% if enable_mcp %}
     "fastmcp>=4.2.6,<5",
 {% endif %}
@@ -37,7 +36,7 @@ dependencies = [
 "{{ cli_command }}" = "{{ package_name }}.cli:app"
 
 [dependency-groups]
-dev = ["httpx", {% if not enable_ntfy %}"httpx2", {% endif %}"pre-commit", "pytest", "pytest-benchmark", "ruff", "ty"]
+dev = ["httpx", "pre-commit", "pytest", "pytest-benchmark", "ruff", "ty"]
 
 [tool.uv.build-backend]
 module-name = "{{ package_name }}"

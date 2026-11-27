@@ -75,3 +75,39 @@ def test_api_health_and_readiness(monkeypatch):
 {% if enable_jobs %}
     assert redis.closed
 {% endif %}
+
+
+
+def test_gzip_negotiation():
+    client = TestClient(api.create_app())
+    try:
+        compressed = client.get("/openapi.json", headers={"Accept-Encoding": "gzip"})
+        plain = client.get("/openapi.json", headers={"Accept-Encoding": "identity"})
+        assert compressed.headers["content-encoding"] == "gzip"
+        assert "accept-encoding" in compressed.headers["vary"].lower()
+        assert "content-encoding" not in plain.headers
+        assert compressed.json() == plain.json()
+        assert int(compressed.headers["content-length"]) < int(plain.headers["content-length"])
+        small = client.get("/health/live", headers={"Accept-Encoding": "gzip"})
+        assert "content-encoding" not in small.headers
+    finally:
+        client.close()
+
+
+def test_gzip_preserves_event_stream():
+    from fastapi.responses import StreamingResponse
+
+    application = api.create_app()
+
+    @application.get("/test-stream")
+    def stream():
+        return StreamingResponse(iter(["data: " + "x" * 2048 + "\n\n"]), media_type="text/event-stream")
+
+    client = TestClient(application)
+    try:
+        response = client.get("/test-stream", headers={"Accept-Encoding": "gzip"})
+        assert response.status_code == 200
+        assert "content-encoding" not in response.headers
+        assert response.text.startswith("data: ")
+    finally:
+        client.close()

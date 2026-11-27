@@ -50,3 +50,9 @@ tasks:
   resources:
     cmds:
       - uv run {{ cli_command }} resources
+
+  doctor:
+    desc: Diagnose configuration, dependencies and service health as JSON
+    silent: true
+    cmds:
+      - uv run --no-sync --offline {{ cli_command }} doctor {% raw %}{{.CLI_ARGS}}{% endraw +%}

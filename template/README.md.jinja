@@ -46,6 +46,9 @@ Task delivery can be repeated after worker failure; design side effects to be id
 {% endif %}
 - `GET /docs`: interactive OpenAPI documentation.
 
+Responses of at least 1024 bytes are gzip-compressed at level 5 when the client accepts gzip.
+Small responses and SSE streams remain uncompressed.
+
 Keep the default loopback binding unless authentication and network exposure
 are explicitly configured.
 
@@ -108,6 +111,23 @@ sudo journalctl -fu {{ project_slug }}-api.service
 The installer enables the API{% if enable_jobs %}, worker and scheduler{% endif %} at boot under a non-root account.
 To update, run `uv sync --frozen --no-dev` as the service user and restart the installed units.
 Commit the generated `uv.lock` to your repository.
+
+## Diagnostics
+
+```bash
+task doctor
+task doctor -- --require-running
+```
+
+Run after `task setup`, from the project root. The command writes one JSON report to
+stdout (schema_version, status, checks with id, status, detail and action).
+Exit status is 1 for a failed check, otherwise 0. An offline API is a warning unless
+`--require-running` is supplied. Installed but inactive systemd units are failures;
+uninstalled units are skipped. Checks cover the Python pin, direct dependency versions,
+validated settings, SQLite schema, TCP connectivity, API readiness and systemd{% if enable_jobs %}, Redis{% endif %}{% if enable_ntfy %}, ntfy configuration{% endif %}.
+No service is started, database initialized, notification sent or dependency installed
+by the diagnostic command. It does not verify transitive dependencies, remote ntfy delivery
+or the identity of the process behind a port.
 
 ## Tests
 
