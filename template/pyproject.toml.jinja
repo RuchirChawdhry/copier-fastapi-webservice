@@ -20,7 +20,7 @@ dependencies = [
     "rich",
     "uvicorn[standard]",
 {% if enable_mcp %}
-    "mcp>=2.3,<3",
+    "fastmcp>=4.2.6,<5",
 {% endif %}
 {% if enable_jobs %}
     "redis>=5",

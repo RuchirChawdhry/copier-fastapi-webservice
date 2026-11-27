@@ -37,7 +37,8 @@ def test_generated_features(generated):
     assert "uvicorn[standard]" in dependencies
     assert "psutil" in dependencies
     assert "httpx2" in config["dependency-groups"]["dev"]
-    assert any(dep.startswith("mcp>=") for dep in dependencies) == mcp
+    assert any(dep.startswith("fastmcp>=") for dep in dependencies) == mcp
+    assert not any(dep.startswith("mcp>=") for dep in dependencies)
     assert (root / "src/demo_service/mcp_server.py").exists() == mcp
     assert (root / "tests/test_mcp.py").exists() == mcp
     assert {"pre-commit", "pytest-benchmark", "ty"} <= set(config["dependency-groups"]["dev"])

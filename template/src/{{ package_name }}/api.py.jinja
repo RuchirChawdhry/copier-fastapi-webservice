@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
         if broker.is_worker_process:
             yield
         else:
-            async with app.state.mcp.session_manager.run():
+            async with app.state.mcp_app.lifespan(app.state.mcp_app):
                 yield
 {% else %}
         yield
@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
             await broker.shutdown()
 {% else %}
 {% if enable_mcp %}
-    async with app.state.mcp.session_manager.run():
+    async with app.state.mcp_app.lifespan(app.state.mcp_app):
         yield
 {% else %}
     yield
@@ -128,15 +128,16 @@ def create_app() -> FastAPI:
     app.include_router(router)
 {% if enable_mcp %}
     server = create_mcp_server()
-    app.state.mcp = server
-    app.mount(
-        "/mcp",
-        server.streamable_http_app(
-            streamable_http_path="/",
-            stateless_http=True,
-            json_response=True,
-        ),
+    mcp_app = server.http_app(
+        path="/",
+        stateless_http=True,
+        json_response=True,
+        host_origin_protection=True,
+        allowed_hosts=["localhost", "127.0.0.1", "::1"],
+        allowed_origins=[],
     )
+    app.state.mcp_app = mcp_app
+    app.mount("/mcp", mcp_app)
 {% endif %}
     return app
 

@@ -14,7 +14,7 @@ from contextlib import contextmanager
 import httpx
 import pytest
 {% if enable_mcp %}
-from mcp import Client
+from fastmcp import Client
 {% endif %}
 from redis import Redis
 from redis.exceptions import RedisError
@@ -105,8 +105,8 @@ def test_real_job_delivery(tmp_path):
             async def verify_mcp():
                 async with Client(f"http://127.0.0.1:{api_port}/mcp/") as mcp:
                     listed = await mcp.list_tools()
-                    assert [tool.name for tool in listed.tools] == ["get_message_count"]
-                    result = await mcp.call_tool("get_message_count", {})
+                    assert [tool.name for tool in listed] == ["get_message_count"]
+                    result = await mcp.call_tool_mcp("get_message_count", {})
                     assert not result.is_error
                     assert result.structured_content == {"result": 1}
 

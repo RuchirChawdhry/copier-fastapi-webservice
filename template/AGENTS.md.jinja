@@ -23,7 +23,7 @@ or live systemd units during development.
 - `scheduler.py`: dedicated sequential dispatcher, never started by API workers.
 {% endif %}
 {% if enable_mcp %}
-- `mcp_server.py`: explicitly registered MCP tools; reuse domain functions; loopback only by default.
+- `mcp_server.py`: explicitly registered FastMCP tools; reuse domain functions; loopback only by default.
 {% endif %}
 - `deploy/install.sh`: explicit Ubuntu systemd installation.
 

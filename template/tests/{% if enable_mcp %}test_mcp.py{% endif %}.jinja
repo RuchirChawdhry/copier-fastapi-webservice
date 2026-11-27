@@ -63,3 +63,9 @@ def test_mcp_tools(monkeypatch):
             json={"jsonrpc": "2.0", "id": 4, "method": "tools/list", "params": {}},
         )
         assert blocked.status_code == 421
+        blocked = client.post(
+            "/mcp/",
+            headers={**headers, "Origin": "https://untrusted.example"},
+            json={"jsonrpc": "2.0", "id": 5, "method": "tools/list", "params": {}},
+        )
+        assert blocked.status_code == 403
