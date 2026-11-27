@@ -14,6 +14,7 @@ jobs:
     uses: RuchirChawdhry/ci-workflows/.github/workflows/copier-ci.yml@main
     with:
       python-typecheck: true
+      redis-integration: true
   minimal:
     uses: RuchirChawdhry/ci-workflows/.github/workflows/copier-ci.yml@main
     with:
