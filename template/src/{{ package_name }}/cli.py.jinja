@@ -53,16 +53,15 @@ def scheduler() -> None:
     """Start the independent periodic job dispatcher."""
     import asyncio
     import signal
+    from contextlib import suppress
 
     from .scheduler import run_scheduler
 
     async def main() -> None:
         task = asyncio.create_task(run_scheduler())
         asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, task.cancel)
-        try:
+        with suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
 
     configure_logging()
     asyncio.run(main())
