@@ -1,6 +1,9 @@
 _min_copier_version: "9.14.1"
 _subdirectory: template
 _templates_suffix: .jinja
+_envops:
+  trim_blocks: true
+  lstrip_blocks: true
 
 project_name:
   type: str
@@ -37,7 +40,7 @@ cli_command:
 description:
   type: str
   help: Short service description
-  default: An always-on Python API with background jobs.
+  default: An always-on Python API.
 
 author_name:
   type: str

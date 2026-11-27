@@ -10,7 +10,7 @@ jobs:
   version:
     runs-on: ubuntu-slim
     outputs:
-      python: {% raw %}${{ steps.version.outputs.python }}{% endraw %}
+      python: {% raw %}${{ steps.version.outputs.python }}{% endraw +%}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -22,12 +22,12 @@ jobs:
     needs: version
     uses: RuchirChawdhry/ci-workflows/.github/workflows/python-cli.yml@main
     with:
-      python-version: {% raw %}${{ needs.version.outputs.python }}{% endraw %}
+      python-version: {% raw %}${{ needs.version.outputs.python }}{% endraw +%}
       cli-command: '{{ cli_command }}'
 
   distribution:
     needs: version
     uses: RuchirChawdhry/ci-workflows/.github/workflows/python-build.yml@main
     with:
-      python-version: {% raw %}${{ needs.version.outputs.python }}{% endraw %}
+      python-version: {% raw %}${{ needs.version.outputs.python }}{% endraw +%}
       cli-command: '{{ cli_command }}'

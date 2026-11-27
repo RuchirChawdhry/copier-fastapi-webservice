@@ -15,3 +15,4 @@ def test_standard_and_application_logs_share_format():
     )
     records = [json.loads(line)["record"] for line in result.stderr.splitlines()]
     assert [record["message"] for record in records] == ["http", "application"]
+    assert [record["level"]["name"] for record in records] == ["INFO", "INFO"]

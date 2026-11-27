@@ -10,8 +10,12 @@ from .config import get_settings
 
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
         logger.bind(source=record.name).opt(exception=record.exc_info).log(
-            record.levelno, record.getMessage()
+            level, record.getMessage()
         )
 
 

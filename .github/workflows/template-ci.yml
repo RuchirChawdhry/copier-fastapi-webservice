@@ -10,5 +10,10 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  full:
     uses: RuchirChawdhry/ci-workflows/.github/workflows/copier-ci.yml@main
+  minimal:
+    uses: RuchirChawdhry/ci-workflows/.github/workflows/copier-ci.yml@main
+    with:
+      copier-data: '{"enable_jobs": false}'
+      artifact-suffix: '-minimal'

@@ -45,7 +45,7 @@ write_unit() {
 [Unit]
 Description={{ project_name }} ($kind)
 Wants=network-online.target
-After=network-online.target{% if enable_jobs %} redis-server.service{% endif %}
+After=network-online.target{% if enable_jobs %} redis-server.service{% endif +%}
 StartLimitIntervalSec=0
 
 [Service]
