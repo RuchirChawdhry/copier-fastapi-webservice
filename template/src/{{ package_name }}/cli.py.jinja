@@ -110,7 +110,7 @@ def status() -> None:
                 timeout=5,
             )
             value = result.stdout.strip() or "not installed"
-        except (OSError, subprocess.TimeoutExpired):
+        except OSError, subprocess.TimeoutExpired:
             value = "systemd unavailable"
         table.add_row(kind, value)
 

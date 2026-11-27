@@ -70,14 +70,14 @@ async def health(
     dependencies = {"sqlite": "ok"}
     try:
         await asyncio.to_thread(check_database)
-    except (OSError, sqlite3.Error):
+    except OSError, sqlite3.Error:
         dependencies["sqlite"] = "unavailable"
 {% if enable_jobs %}
     try:
         async with asyncio.timeout(2):
             await request.app.state.redis.ping()
         dependencies["redis"] = "ok"
-    except (OSError, RedisError, TimeoutError):
+    except OSError, RedisError, TimeoutError:
         dependencies["redis"] = "unavailable"
 {% endif %}
     ready = all(value == "ok" for value in dependencies.values())
