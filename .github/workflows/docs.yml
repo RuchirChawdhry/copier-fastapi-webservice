@@ -1,0 +1,24 @@
+name: Starlight documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wiki/**'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'wiki/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  site:
+    uses: RuchirChawdhry/ci-workflows/.github/workflows/wiki-pages.yml@main
+    with:
+      publish: ${{ github.event_name != 'pull_request' }}

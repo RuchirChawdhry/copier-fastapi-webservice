@@ -1,5 +1,7 @@
 # Copier FastAPI Webservice
 
+[Documentation](https://ruchirchawdhry.github.io/copier-fastapi-webservice/) · [Wiki](https://github.com/RuchirChawdhry/copier-fastapi-webservice/wiki) · [Agent documentation](https://ruchirchawdhry.github.io/copier-fastapi-webservice/llms.txt)
+
 Backend-only Copier template for long-running Ubuntu services with FastAPI, SQLite,
 Cyclopts, Rich, Loguru, uv and systemd. Redis and Taskiq jobs are optional at generation time.
 

@@ -1,0 +1,1 @@
+[Source](https://github.com/RuchirChawdhry/copier-fastapi-webservice) · [Project site](https://ruchirchawdhry.github.io/copier-fastapi-webservice/) · [CI workflows](https://github.com/RuchirChawdhry/ci-workflows)
