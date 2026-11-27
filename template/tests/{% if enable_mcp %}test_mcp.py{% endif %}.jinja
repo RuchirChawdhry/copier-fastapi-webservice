@@ -14,7 +14,7 @@ def test_mcp_tools(monkeypatch):
     monkeypatch.setattr(api.broker, "startup", noop)
     monkeypatch.setattr(api.broker, "shutdown", noop)
 {% endif %}
-    with TestClient(api.create_app(), base_url="http://localhost") as client:
+    with TestClient(api.create_app(), base_url="http://127.0.0.1:8000") as client:
         record_message("MCP test")
         headers = {"Accept": "application/json, text/event-stream"}
         response = client.post(
@@ -40,9 +40,7 @@ def test_mcp_tools(monkeypatch):
             json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
         )
         assert response.status_code == 200, response.text
-        assert [tool["name"] for tool in response.json()["result"]["tools"]] == [
-            "get_message_count"
-        ]
+        assert [tool["name"] for tool in response.json()["result"]["tools"]] == ["get_message_count"]
         response = client.post(
             "/mcp/",
             headers=headers,
